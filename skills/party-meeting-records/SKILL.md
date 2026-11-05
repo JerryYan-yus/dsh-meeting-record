@@ -81,6 +81,13 @@ whenToUse: 用户说“帮我写会议记录/三会一课/支部会议/支委会
 - 确认修改后，如用户同意，`knowledge_save kind:"material"` 存入“支部材料”；当前 Word 导出主要面向会议记录，其他材料可复制到 Word。
 - 篇幅未指定时默认中等。
 
+## 0.9 会前材料与任务台账
+
+- 用户要“会议通知/议程/签到表/会前材料包” → `meeting_prep_pack`（可传已有 meetingId，或直接给会议类型/日期/地点/主持人/议题）；把 Markdown 展示给用户。若要存入知识库，先问一句，再 `knowledge_save kind:"material"`。
+- 每次生成或修改正文后：从“决议/工作分工”中提取任务，调用 `meeting_tasks_save`（一条一项；责任人、时限只从正文确定的内容填，不确定留空）；回复“已记录N项任务，可在「任务」页查看/修改”。
+- 生成新会议前：`meeting_tasks_list({status:"open", limit:5})`；有未完成事项时，在摘要中列“上次会议未完成事项”，最多 5 条，不展开。
+- 用户问“还有哪些任务/某项完成了” → `meeting_tasks_list` 或 `meeting_task_update`，按用户说的状态更新；不要删除任务。
+
 ## 1. 对话流程（8 步）
 
 ### 第 1 步：读材料 + 决定模板
@@ -255,6 +262,10 @@ whenToUse: 用户说“帮我写会议记录/三会一课/支部会议/支委会
 - `meeting_record_get`：查记录元信息；默认不含正文，需正文才 `includeMarkdown:true`。
 - `meeting_export_docx`：导出 Word 到知识库 Word导出/，返回路径。
 - `meeting_list`：会议列表。
+- `meeting_tasks_save`：保存会议决议/分工任务。
+- `meeting_tasks_list`：查任务台账（默认未完成）。
+- `meeting_task_update`：更新任务状态/责任人/时限。
+- `meeting_prep_pack`：生成会前材料（方案/议程/通知/签到表/主持词）。
 - `knowledge_save`：存知识库（record/reference/branch/material/daily）。
 - `knowledge_search` / `knowledge_read`：检索/读取笔记。
 - `knowledge_organize`：整理知识库并更新索引（用户要求或索引超过30天时）。
@@ -274,5 +285,6 @@ whenToUse: 用户说“帮我写会议记录/三会一课/支部会议/支委会
 - 不要 `meeting_record_get` 复核正文；保存返回值已含字数/待核对数。
 - 不复述用户材料、不复述已展示的正文；保存后只报字数与待核对。
 - 用户未要求、且与本次材料无关时不检索知识库；需要参考时最多 1–2 次 `knowledge_search`（limit 5）。
+- 任务台账查询只取未完成、最多 5 条；不要把整本台账贴进上下文。
 - 回复尽量短：确认/问题用清单；不要解释功能、不要总结过程。
 - 多场会议共用已知的支部/人员信息，不重复询问或重复保存。

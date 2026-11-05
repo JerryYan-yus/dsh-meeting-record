@@ -21,6 +21,12 @@
 - 支持多轮修改、导入修订后的 Word 后以其为准更新。
 - 生成后固定确认：修改 / 输出 Word / 保存定稿 / 存入知识库。
 
+### 任务台账与会前材料
+
+- 从会议记录中提取决议/工作分工，形成任务台账；可设置责任人、完成时限，标记完成/重开。
+- 生成新会议时自动提醒上次会议未完成事项。
+- 一键生成会前材料包：会议方案、议程、通知、签到表、主持词参考（Markdown）。
+
 ### 会议记录管理
 
 - 记录列表、状态（草稿/已生成/已定稿）、字数、待核对数量。
@@ -158,7 +164,8 @@ git pull
 
 ## 面板说明
 
-- **会议记录**：在对话中生成会议记录、记录列表、正文预览与编辑、导出 Word、定稿。
+- **会议记录**：在对话中生成会议记录、记录列表、正文预览与编辑、导出 Word、定稿、会前材料。
+- **任务**：会议决议/分工任务台账，完成/重开、编辑责任人/时限。
 - **人员**：支部信息编辑、人员添加/编辑/停用/恢复、存入知识库。
 - **知识库**：分类统计、树状目录、检索、预览、编辑、删除、整理知识库。
 - **设置**：记录长度、Obsidian 知识库位置、用户画像、对话生成状态、数据与权限、清空数据（15 秒确认）。
@@ -185,9 +192,9 @@ git pull
 
 ## 模型工具
 
-共 15 个：
+共 19 个：
 
-`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
@@ -216,6 +223,7 @@ git pull
 
 ## 说明
 
+- 当前为**单用户、本地运行**设计：数据保存在本机，不支持多用户、登录权限或云端同步。
 - 插件与助手只读取、写入本机文件；助手没有删除能力。面板中删除知识库笔记需要用户确认；清空插件数据需等待 15 秒并再次确认。
 - Word 导出默认进入知识库 `Word导出/`，同名文件自动加 `-2`、`-3`。
 - Windows 长路径（超过 260 字符）、OneDrive 重定向“文档”目录、杀毒软件拦截写入等情况可能影响使用，建议把知识库放在 `Documents` 一级目录。

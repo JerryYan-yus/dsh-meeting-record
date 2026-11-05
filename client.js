@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
     const LEVEL_LABELS = { block: '必须处理', confirm: '需要确认', suggest: '建议优化' }
     const NAV = [
       ['meetings', '会议记录'],
+      ['tasks', '任务'],
       ['people', '人员'],
       ['knowledge', '知识库'],
       ['settings', '设置'],
@@ -70,6 +71,16 @@ window.__ModuleLoader__.load({
       const anchor = document.createElement('a')
       anchor.href = url
       anchor.download = data.filename
+      anchor.click()
+      setTimeout(() => URL.revokeObjectURL(url), 3000)
+    }
+
+    function downloadTextFile(filename, text) {
+      const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
       anchor.click()
       setTimeout(() => URL.revokeObjectURL(url), 3000)
     }
@@ -413,6 +424,12 @@ window.__ModuleLoader__.load({
         const data = await call('meeting.export_file', { meetingId: meeting.id })
         setStatus(`已导出：${data.path}`)
       }
+      async function generatePrep() {
+        const data = await call('meeting.prep_pack', { meetingId: meeting.id })
+        downloadTextFile(`${data.title || '会议材料'}.md`, data.markdown)
+        setStatus('会前材料已生成并下载')
+      }
+
       async function saveToKnowledge(kind) {
         const recordContent = kind === 'reference'
           ? (meeting.sources ?? []).map(source => `- ${source.title || source.url}${source.publishedAt ? `（${source.publishedAt}）` : ''}${source.url ? ` ${source.url}` : ''}`).join('\n')
@@ -493,7 +510,8 @@ window.__ModuleLoader__.load({
           meeting.status === 'finalized' ? null : h(Btn, { onClick: finalize }, '定稿'),
           h(Btn, { onClick: editing ? saveRecord : () => setEditing(true) }, editing ? '保存正文' : '编辑正文'),
           h(Btn, { onClick: () => saveToKnowledge('record') }, '存入知识库'),
-          (meeting.sourcesCount ?? 0) > 0 ? h(Btn, { onClick: () => saveToKnowledge('reference') }, '存入检索资料') : null),
+          (meeting.sourcesCount ?? 0) > 0 ? h(Btn, { onClick: () => saveToKnowledge('reference') }, '存入检索资料') : null,
+          h(Btn, { onClick: generatePrep }, '会前材料')),
         status !== '' ? h('div', { style: { ...ui.hint, marginBottom: 8, color: '#16794c' } }, status) : null,
         h(Card, { title: '会议记录正文', extra: editing ? null : h(RenderCheckbox, { checked: renderMarkdownEnabled, onChange: changeRecordRender }) },
           editing
@@ -547,6 +565,47 @@ window.__ModuleLoader__.load({
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
         h(ChatCard, { compact: false, guidance: snapshot.guidance }),
         h(MeetingList, { snapshot, mutate, onOpen: setSelectedId, onCreated: setSelectedId }))
+    }
+
+    function TaskRow({ task, mutate }) {
+      const [editing, setEditing] = useState(false)
+      const [content, setContent] = useState(task.content ?? '')
+      const [owner, setOwner] = useState(task.owner ?? '')
+      const [dueDate, setDueDate] = useState(task.dueDate ?? '')
+      async function save() {
+        await mutate('tasks.update', { taskId: task.id, content, owner, dueDate })
+        setEditing(false)
+      }
+      if (editing) {
+        return h('div', { style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
+          h(Field, { label: '任务内容' }, h('input', { style: ui.input, value: content, onChange: event => setContent(event.target.value) })),
+          h('div', { style: ui.row },
+            h(Field, { label: '责任人' }, h('input', { style: ui.input, value: owner, onChange: event => setOwner(event.target.value) })),
+            h(Field, { label: '完成时限' }, h('input', { type: 'date', style: ui.input, value: dueDate, onChange: event => setDueDate(event.target.value) }))),
+          h(Btn, { kind: 'primary', onClick: save }, '保存'),
+          h(Btn, { onClick: () => setEditing(false) }, '取消'))
+      }
+      return h('div', { style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
+        h('div', { style: { fontSize: 13, lineHeight: 1.6 } }, task.content),
+        h('div', { style: { ...ui.hint, marginTop: 2 } },
+          `${task.status === 'done' ? '已完成' : '待完成'}${task.owner ? ` · 责任人：${task.owner}` : ''}${task.dueDate ? ` · 时限：${task.dueDate}` : ''}${task.meetingDate ? ` · 来源：${task.meetingDate} 会议` : ''}`),
+        h('div', null,
+          h(Btn, { kind: 'link', onClick: () => setEditing(true) }, '编辑'),
+          h(Btn, { kind: 'link', onClick: () => mutate('tasks.update', { taskId: task.id, status: task.status === 'done' ? 'open' : 'done' }) }, task.status === 'done' ? '重开' : '完成')))
+    }
+
+    function TasksPage({ snapshot, mutate }) {
+      const [filter, setFilter] = useState('open')
+      const tasks = (snapshot.tasks ?? []).filter(task => filter === 'all' || task.status === filter)
+      const openCount = (snapshot.tasks ?? []).filter(task => task.status === 'open').length
+      return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+        h(Card, { title: `任务台账（待完成 ${openCount}）` },
+          h('div', { style: { display: 'flex', gap: 6, marginBottom: 8 } },
+            [['open', '待完成'], ['done', '已完成'], ['all', '全部']].map(([value, label]) =>
+              h(Btn, { key: value, kind: filter === value ? 'primary' : 'default', onClick: () => setFilter(value) }, label))),
+          tasks.length === 0
+            ? h('div', { style: ui.hint }, '暂无任务。生成会议记录后，助手会把决议/分工提取到这里。')
+            : tasks.map(task => h(TaskRow, { key: task.id, task, mutate }))))
     }
 
     // -------------------------------------------------------------- people
@@ -958,6 +1017,7 @@ window.__ModuleLoader__.load({
 
       let content
       if (view === 'meetings') content = h(MeetingsPage, { snapshot, mutate, call, selectedId, setSelectedId })
+      else if (view === 'tasks') content = h(TasksPage, { snapshot, mutate })
       else if (view === 'people') content = h(PeoplePage, { snapshot, mutate })
       else if (view === 'knowledge') content = h(KnowledgePage, { snapshot, mutate, call, onOpenSettings: () => setView('settings') })
       else content = h(SettingsPage, { snapshot, mutate, call })
@@ -997,7 +1057,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, KnowledgePage, SettingsPage, ChatCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, KnowledgePage, SettingsPage, ChatCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
