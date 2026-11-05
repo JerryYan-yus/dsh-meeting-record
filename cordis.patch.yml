@@ -1,0 +1,5 @@
+# 党建会议记录助手：Host 业务服务 + Client 管理面板。
+# 安装/启用由 plugin_manager 的 bundle 机制完成，不需要手写 profile。
+- insert:
+    - id: meetrecord
+      name: '@local/dsh-meetrecord'
