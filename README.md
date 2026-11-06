@@ -96,7 +96,7 @@
 
 ### 按需加载的技能参考
 
-- 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_skill_guide`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+- 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 - 普通会议记录不会加载这些模块，减少上下文消耗。
 
 ### 知识库冗余与恢复
@@ -269,9 +269,9 @@ git pull
 
 ## 模型工具
 
-共 31 个：
+共 29 个：
 
-`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
