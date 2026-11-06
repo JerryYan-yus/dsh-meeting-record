@@ -568,6 +568,31 @@ window.__ModuleLoader__.load({
             issuesList)))
     }
 
+    function WorkDomainCard({ snapshot }) {
+      const domain = snapshot.workDomain ?? { name: '党建党务', hint: '', meetingTypes: [], materialTypes: [] }
+      const [copied, setCopied] = useState('')
+      async function copyMaterial(type) {
+        const prompt = `请帮我写一份${type}。\n用途/对象：\n篇幅/时间要求：\n素材如下：\n`
+        try {
+          await navigator.clipboard.writeText(prompt)
+          setCopied(type)
+          setTimeout(() => setCopied(''), 3000)
+        } catch {
+          setCopied('复制失败')
+        }
+      }
+      return h(Card, { title: `当前工作性质：${domain.name || '党建党务'}` },
+        domain.hint ? h('div', { style: { ...ui.hint, marginBottom: 8 } }, domain.hint) : null,
+        (domain.meetingTypes ?? []).length > 0 ? h('div', { style: { marginBottom: 6 } },
+          h('span', { style: { fontSize: 12, fontWeight: 600, marginRight: 8 } }, '常见会议'),
+          domain.meetingTypes.map(type => h('span', { key: type, style: { ...ui.hint, marginRight: 10 } }, type))) : null,
+        (domain.materialTypes ?? []).length > 0 ? h('div', null,
+          h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '材料快捷入口（点击复制提示语）'),
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+            domain.materialTypes.map(type => h(Btn, { key: type, kind: 'link', onClick: () => copyMaterial(type) }, type))),
+          copied !== '' ? h('div', { style: { ...ui.hint, marginTop: 4, color: '#16794c' } }, `已复制：${copied}`) : null) : null)
+    }
+
     function MeetingsPage({ snapshot, mutate, call, selectedId, setSelectedId }) {
       const configured = snapshot.branches.length > 0 && snapshot.members.length > 0
       if (!configured) {
@@ -578,6 +603,7 @@ window.__ModuleLoader__.load({
         return h(MeetingDetail, { key: selected.id, meeting: selected, snapshot, mutate, call, onBack: () => setSelectedId('') })
       }
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+        h(WorkDomainCard, { snapshot }),
         h(ChatCard, { compact: false, guidance: snapshot.guidance, workDomain: snapshot.workDomain }),
         h(MeetingList, { snapshot, mutate, onOpen: setSelectedId, onCreated: setSelectedId }))
     }
@@ -1137,7 +1163,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, KnowledgePage, SettingsPage, ChatCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {

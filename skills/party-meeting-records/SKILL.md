@@ -21,6 +21,7 @@ whenToUse: 用户说“帮我写会议记录/会议纪要/通知/请示/报告/�
 
 - `onboarding`：首次配置、怎么用、用户画像、保存名单后的回执；
 - `domains`：工作性质分类、各领域会议类型与材料类型；非党建模式先读；
+- `domain-materials`：人事/财务/项目/宣传/教学/治理等分领域材料范式；
 - `knowledge`：支部材料/日常工作入库、批量导入、检索引用、整理知识库；
 - `materials`：写总结/汇报/方案/通知/简报等非会议记录材料；
 - `prep-tasks`：会前材料包、任务台账、上次会议遗留事项；
@@ -62,7 +63,7 @@ whenToUse: 用户说“帮我写会议记录/会议纪要/通知/请示/报告/�
   - 模板用 `workDomain.templates` 中的通用模板（`tpl-general-*`），不要套用支委会模板；
   - 不硬套“第一议题”、党员、支部、组织委员等术语；
   - 正文结构沿用 §2 的通用结构；标题“单位/部门 + 会议类型 + 会议记录/纪要”；
-  - 材料类型与写作重点先读 `meeting_skill_guide("domains")`，再按 `materials` 模块写。
+  - 材料类型与写作重点先读 `meeting_skill_guide("domains")`，需要具体文种范式再读 `meeting_skill_guide("domain-materials")`，按 `materials` 模块写。
 - 用户没说工作性质、但材料明显是党建/业务/财务等，可判断后说明依据；判断不了只问一次。
 
 ## 1. 党建模式对话流程（8 步，仅 workDomain=party）
