@@ -63,6 +63,14 @@ export function apply(ctx) {
   const service = createService(store)
   const diagnostics = { clientLoaded: null }
 
+  // Repair a missing/cleared knowledge base on activation (seed + branch +
+  // meeting records + knowledge snapshot). Never deletes existing notes.
+  try {
+    service.ensureKnowledgeBaseline()
+  } catch (error) {
+    console.warn('[meetrecord] 知识库自检失败：', error)
+  }
+
   function installSkill() {
     return installBundledSkill(service)
   }

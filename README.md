@@ -54,6 +54,14 @@
 - 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_skill_guide` 取用。
 - 普通会议记录不会加载这些模块，减少上下文消耗。
 
+### 知识库冗余与恢复
+
+- 插件数据自动保留最近 5 份 `app.json` 备份（`.bak-1`～`.bak-5`）。
+- 每次保存/删除笔记前生成知识库快照 `knowledge-backup.json`。
+- 启动时和知识库页“检查修复”可补回：内置规范、支部信息、已保存会议记录、索引、快照中的材料笔记。
+- 误清空知识库后，重启 DSH 或点击“检查修复”即可恢复基础内容；Word 导出文件不自动重建，可从会议记录重新导出。
+- 详细异常场景与恢复顺序见 [docs/知识库冗余与恢复.md](docs/知识库冗余与恢复.md)。
+
 ### 内置规范种子包
 
 - 随插件内置 8 篇通用规范：三会一课与会议类型、发展党员、支部选举、会议记录格式、公文格式、质量检查清单、组织生活会与民主评议。
@@ -211,9 +219,9 @@ git pull
 
 ## 模型工具
 
-共 22 个：
+共 23 个：
 
-`meeting_skill_guide`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 

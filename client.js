@@ -398,6 +398,7 @@ window.__ModuleLoader__.load({
       const [editingInfo, setEditingInfo] = useState(false)
       const [form, setForm] = useState(pickFields(meeting))
       const [importing, setImporting] = useState(false)
+      const [repairing, setRepairing] = useState(false)
       const [issues, setIssues] = useState(null)
       const [status, setStatus] = useState('')
       useEffect(() => { setMarkdown(meeting.recordMarkdown ?? '') }, [meeting.id, meeting.updatedAt])
@@ -765,6 +766,7 @@ window.__ModuleLoader__.load({
       const [editContent, setEditContent] = useState('')
       const [status, setStatus] = useState('')
       const [importing, setImporting] = useState(false)
+      const [repairing, setRepairing] = useState(false)
       const [renderMarkdownEnabled, setRenderMarkdownEnabled] = useState(() => {
         try { return localStorage.getItem('meetrecord.kbRender') !== 'false' } catch { return true }
       })
@@ -811,6 +813,16 @@ window.__ModuleLoader__.load({
           setImporting(false)
         }
       }
+      async function repair() {
+        setRepairing(true)
+        try {
+          const result = await call('knowledge.repair', {})
+          await mutate('state.get', {})
+          setStatus(`已检查修复：补规范 ${result.seed?.installed ?? 0} 篇，恢复支部 ${result.branches?.length ?? 0} 条、会议记录 ${result.records?.length ?? 0} 条、备份笔记 ${result.restored?.length ?? 0} 条`)
+        } finally {
+          setRepairing(false)
+        }
+      }
       async function organize() {
         const result = await call('knowledge.organize', { force: true })
         await mutate('state.get', {})
@@ -830,6 +842,7 @@ window.__ModuleLoader__.load({
           h('label', { style: { ...ui.button('default'), display: 'inline-block' } },
             importing ? '导入中…' : '导入材料',
             h('input', { type: 'file', accept: '.md,.txt,.docx', multiple: true, onChange: importFiles, style: { display: 'none' } })),
+          h(Btn, { onClick: repair, disabled: repairing }, repairing ? '检查中…' : '检查修复'),
           h(Btn, { onClick: organize }, '整理知识库')) },
           h('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
             Object.entries(KNOWLEDGE_KIND_LABELS).filter(([kind]) => kind !== 'index').map(([kind, label]) =>
