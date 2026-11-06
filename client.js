@@ -813,12 +813,17 @@ window.__ModuleLoader__.load({
           setImporting(false)
         }
       }
-      async function repair() {
+      async function repair(includeHistory = false) {
+        if (includeHistory && !window.confirm('将尝试恢复支部信息、已保存会议记录和历史材料笔记，可能产生重复。是否继续？')) return
         setRepairing(true)
         try {
-          const result = await call('knowledge.repair', {})
+          const result = await call('knowledge.repair', { includeHistory })
           await mutate('state.get', {})
-          setStatus(`已检查修复：补规范 ${result.seed?.installed ?? 0} 篇，恢复支部 ${result.branches?.length ?? 0} 条、会议记录 ${result.records?.length ?? 0} 条、备份笔记 ${result.restored?.length ?? 0} 条`)
+          if (includeHistory) {
+            setStatus(`已恢复：规范 ${result.seed?.installed ?? 0} 篇，支部 ${result.branches?.length ?? 0} 条、会议记录 ${result.records?.length ?? 0} 条、备份笔记 ${result.restored?.length ?? 0} 条`)
+          } else {
+            setStatus(`已补必要文件：规范 ${result.seed?.installed ?? 0} 篇；未恢复历史数据`)
+          }
         } finally {
           setRepairing(false)
         }
@@ -842,7 +847,8 @@ window.__ModuleLoader__.load({
           h('label', { style: { ...ui.button('default'), display: 'inline-block' } },
             importing ? '导入中…' : '导入材料',
             h('input', { type: 'file', accept: '.md,.txt,.docx', multiple: true, onChange: importFiles, style: { display: 'none' } })),
-          h(Btn, { onClick: repair, disabled: repairing }, repairing ? '检查中…' : '检查修复'),
+          h(Btn, { onClick: () => repair(false), disabled: repairing }, repairing ? '检查中…' : '补必要文件'),
+          h(Btn, { kind: 'link', onClick: () => repair(true), disabled: repairing }, '恢复历史数据'),
           h(Btn, { onClick: organize }, '整理知识库')) },
           h('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
             Object.entries(KNOWLEDGE_KIND_LABELS).filter(([kind]) => kind !== 'index').map(([kind, label]) =>
