@@ -285,8 +285,8 @@ window.__ModuleLoader__.load({
         }
       }
       return h(Card, { title: '首次配置' },
-        h('div', { style: { ...ui.hint, marginBottom: 12 } }, '先选择工作性质，再填写一次，长期有效。'),
-        h(Field, { label: '您主要从事哪类工作' }, h(Select, {
+        h('div', { style: { ...ui.hint, marginBottom: 12 } }, '默认党建党务；填写一次，长期有效。非党建工作者可在“工作性质”中切换。'),
+        h(Field, { label: '工作性质（默认党建党务）' }, h(Select, {
           value: workDomain, onChange: setWorkDomain,
           options: domains.map(item => ({ value: item.id, label: item.name })),
         })),
@@ -587,11 +587,22 @@ window.__ModuleLoader__.load({
           setCopied('复制失败')
         }
       }
+      const branch = snapshot.branches?.find(item => item.id === snapshot.settings?.defaultBranchId) ?? snapshot.branches?.[0]
+      const memberCount = snapshot.members?.filter(item => item.active !== false).length ?? 0
+      const meetingTypes = domain.meetingTypes ?? []
+      function copyMeeting(type) {
+        const prompt = `请帮我写一份${type}会议记录。\n会议日期：${new Date().toISOString().slice(0, 10)}\n会议材料/要点：\n`
+        navigator.clipboard.writeText(prompt).then(() => {
+          setCopied(`${type}会议记录提示语`)
+          setTimeout(() => setCopied(''), 3000)
+        }).catch(() => setCopied('复制失败'))
+      }
       return h(Card, { title: `当前工作性质：${domain.name || '党建党务'}` },
+        h('div', { style: { ...ui.hint, marginBottom: 6 } }, `${domain.orgLabel || '单位'}：${branch?.name || '未配置'} · ${domain.memberLabel || '人员'} ${memberCount} 人`),
         domain.hint ? h('div', { style: { ...ui.hint, marginBottom: 8 } }, domain.hint) : null,
-        (domain.meetingTypes ?? []).length > 0 ? h('div', { style: { marginBottom: 6 } },
-          h('span', { style: { fontSize: 12, fontWeight: 600, marginRight: 8 } }, '常见会议'),
-          domain.meetingTypes.map(type => h('span', { key: type, style: { ...ui.hint, marginRight: 10 } }, type))) : null,
+        meetingTypes.length > 0 ? h('div', { style: { marginBottom: 6 } },
+          h('span', { style: { fontSize: 12, fontWeight: 600, marginRight: 8 } }, '会议快捷入口'),
+          meetingTypes.map(type => h(Btn, { key: type, kind: 'link', onClick: () => copyMeeting(type) }, type))) : null,
         (domain.materialTypes ?? []).length > 0 ? h('div', null,
           h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '材料快捷入口（点击复制提示语）'),
           h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
@@ -1211,7 +1222,7 @@ window.__ModuleLoader__.load({
       return h('div', { style: { padding: 18, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
           h('div', null,
-            h('div', { style: { fontSize: 18, fontWeight: 700 } }, '机关工作助手')),
+            h('div', { style: { fontSize: 18, fontWeight: 700 } }, '党务工作助手')),
           h('div', null, h(Btn, { onClick: refresh }, '刷新'), busy ? h('span', { style: ui.hint }, '处理中…') : null)),
         h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
           NAV.map(([key, label]) => h('button', {
