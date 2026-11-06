@@ -698,35 +698,86 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'primary', onClick: create }, '创建'))))
     }
 
-    function LedgerPage({ snapshot }) {
+    function LedgerPage({ snapshot, mutate }) {
       const meetings = snapshot.meetings ?? []
+      const developments = snapshot.developments ?? []
+      const [tab, setTab] = useState('meetings')
       const years = [...new Set(meetings.map(item => String(item.meetingDate ?? '').slice(0, 4)).filter(item => /^\d{4}$/.test(item)))].sort().reverse()
       const currentYear = years[0] ?? String(new Date().getFullYear())
       const [year, setYear] = useState(currentYear)
+      const [form, setForm] = useState({ id: '', name: '', stage: 'applicant', date: '', notes: '' })
+      const [editing, setEditing] = useState(false)
+      const stageLabels = { applicant: '入党申请', activist: '入党积极分子', target: '发展对象', probationary: '预备党员', full: '正式党员' }
+      const stageOrder = ['applicant', 'activist', 'target', 'probationary', 'full']
+      const stageDateKey = { applicant: 'appliedAt', activist: 'activistAt', target: 'targetAt', probationary: 'probationaryAt', full: 'fullAt' }
       const yearMeetings = meetings.filter(item => String(item.meetingDate ?? '').startsWith(year))
       const types = ['支委会', '党员大会', '党小组会', '党课', '主题党日', '组织生活会']
       const targets = { 支委会: 12, 党员大会: 4, 党小组会: 12, 党课: 4, 主题党日: 12, 组织生活会: 1 }
       const counts = Object.fromEntries(types.map(type => [type, yearMeetings.filter(item => item.meetingType === type).length]))
       const months = Array.from({ length: 12 }, (_, index) => {
         const key = `${year}-${String(index + 1).padStart(2, '0')}`
-        const list = yearMeetings.filter(item => String(item.meetingDate ?? '').startsWith(key))
-        return { month: index + 1, list }
+        return { month: index + 1, list: yearMeetings.filter(item => String(item.meetingDate ?? '').startsWith(key)) }
       })
-      return h(Card, { title: '三会一课年度台账' },
-        h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
-          h('span', { style: { ...ui.hint } }, '统计年份'),
-          h(Select, { value: year, onChange: setYear, options: (years.length > 0 ? years : [currentYear]).map(item => ({ value: item, label: item + ' 年' })) })),
-        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
-          types.map(type => h('div', { key: type, style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } },
-            h('div', { style: { fontSize: 12, fontWeight: 600 } }, type),
-            h('div', { style: { fontSize: 18, fontWeight: 700 } }, `${counts[type]} 次`),
-            h('div', { style: { ...ui.hint, fontSize: 11 } }, `参考 ${targets[type]} 次/年`)))),
-        h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '按月分布'),
-        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 } },
-          months.map(month => h('div', { key: month.month, style: { padding: 6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 6, minHeight: 48 } },
-            h('div', { style: { ...ui.hint, fontSize: 11 } }, `${month.month} 月`),
-            month.list.length === 0 ? h('div', { style: { ...ui.hint, fontSize: 11 } }, '—') : month.list.map(item => h('div', { key: item.id, style: { fontSize: 11, marginTop: 2 } }, `${String(item.meetingDate ?? '').slice(8)} ${item.meetingType}`))))),
-        h('div', { style: { ...ui.hint } }, `全年共 ${yearMeetings.length} 场会议。统计来自会议记录，草稿也计入；参考频次以本单位制度为准。`))
+      function openDevelopment(record) {
+        const stage = record?.stage ?? 'applicant'
+        setForm({ id: record?.id ?? '', name: record?.name ?? '', stage, date: record?.[stageDateKey[stage]] ?? '', notes: record?.notes ?? '' })
+        setEditing(true)
+      }
+      async function saveDevelopment() {
+        if (form.name.trim() === '') return
+        await mutate('developments.save', { id: form.id || undefined, name: form.name.trim(), stage: form.stage, [stageDateKey[form.stage]]: form.date, notes: form.notes })
+        setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' })
+        setEditing(false)
+      }
+      async function removeDevelopment(record) {
+        if (!window.confirm(`确定删除 ${record.name} 的发展党员记录？`)) return
+        await mutate('developments.delete', { developmentId: record.id })
+      }
+      const tabs = [['meetings', '三会一课'], ['development', '发展党员']]
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        h('div', { style: { display: 'flex', gap: 6 } },
+          tabs.map(([key, label]) => h('button', { key, type: 'button', onClick: () => setTab(key),
+            style: { ...ui.button(tab === key ? 'primary' : 'default'), borderRadius: 999, padding: '7px 18px' } }, label))),
+        tab === 'development'
+          ? h(Card, { title: `发展党员进度（${developments.length}）`, extra: h(Btn, { onClick: () => openDevelopment(null) }, '新增') },
+            developments.length === 0 ? h('div', { style: ui.hint }, '还没有发展党员记录。点击“新增”登记申请人及当前阶段。') : developments.map(record => {
+              const stageIndex = Math.max(0, stageOrder.indexOf(record.stage))
+              return h('div', { key: record.id, style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  h('div', null,
+                    h('strong', { style: { fontSize: 13 } }, record.name),
+                    h('span', { style: { ...ui.hint, marginLeft: 8 } }, stageLabels[record.stage] ?? record.stage),
+                    record[stageDateKey[record.stage]] ? h('span', { style: { ...ui.hint, marginLeft: 8 } }, record[stageDateKey[record.stage]]) : null),
+                  h('div', { style: { display: 'flex', gap: 8 } },
+                    h(Btn, { kind: 'link', onClick: () => openDevelopment(record) }, '编辑'),
+                    h(Btn, { kind: 'link', onClick: () => removeDevelopment(record) }, '删除'))),
+                h('div', { style: { height: 6, background: 'rgba(0,0,0,.06)', borderRadius: 3, marginTop: 6 } },
+                  h('div', { style: { height: 6, width: `${((stageIndex + 1) / stageOrder.length) * 100}%`, background: '#2563eb', borderRadius: 3 } })),
+                record.notes ? h('div', { style: { ...ui.hint, marginTop: 4 } }, record.notes) : null)
+            }),
+            editing ? h('div', { style: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' } },
+              h('div', { style: ui.row },
+                h(Field, { label: '姓名' }, h('input', { style: ui.input, value: form.name, onChange: event => setForm({ ...form, name: event.target.value }) })),
+                h(Field, { label: '当前阶段' }, h(Select, { value: form.stage, onChange: value => setForm({ ...form, stage: value, date: '' }), options: stageOrder.map(stage => ({ value: stage, label: stageLabels[stage] })) })),
+                h(Field, { label: '该阶段日期' }, h('input', { type: 'date', style: ui.input, value: form.date, onChange: event => setForm({ ...form, date: event.target.value }) }))),
+              h(Field, { label: '备注' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, value: form.notes, onChange: event => setForm({ ...form, notes: event.target.value }) })),
+              h(Btn, { kind: 'primary', onClick: saveDevelopment }, '保存'),
+              h(Btn, { onClick: () => { setEditing(false); setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' }) } }, '取消')) : null)
+          : h(Card, { title: '三会一课年度台账' },
+            h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
+              h('span', { style: { ...ui.hint } }, '统计年份'),
+              h(Select, { value: year, onChange: setYear, options: (years.length > 0 ? years : [currentYear]).map(item => ({ value: item, label: item + ' 年' })) })),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
+              types.map(type => h('div', { key: type, style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } },
+                h('div', { style: { fontSize: 12, fontWeight: 600 } }, type),
+                h('div', { style: { fontSize: 18, fontWeight: 700 } }, `${counts[type]} 次`),
+                h('div', { style: { ...ui.hint, fontSize: 11 } }, `参考 ${targets[type]} 次/年`)))),
+            h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '按月分布'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 } },
+              months.map(month => h('div', { key: month.month, style: { padding: 6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 6, minHeight: 48 } },
+                h('div', { style: { ...ui.hint, fontSize: 11 } }, `${month.month} 月`),
+                month.list.length === 0 ? h('div', { style: { ...ui.hint, fontSize: 11 } }, '—') : month.list.map(item => h('div', { key: item.id, style: { fontSize: 11, marginTop: 2 } }, `${String(item.meetingDate ?? '').slice(8)} ${item.meetingType}`))))),
+            h('div', { style: { ...ui.hint } }, `全年共 ${yearMeetings.length} 场会议。统计来自会议记录，草稿也计入；参考频次以本单位制度为准。`)))
     }
 
     function TaskRow({ task, mutate }) {
@@ -1246,7 +1297,7 @@ window.__ModuleLoader__.load({
         ? [NAV[0], ['ledger', '党务台账'], ...NAV.slice(1)]
         : NAV
       let content
-      if (view === 'ledger') content = h(LedgerPage, { snapshot })
+      if (view === 'ledger') content = h(LedgerPage, { snapshot, mutate })
       else if (view === 'meetings') content = h(MeetingsPage, { snapshot, mutate, call, selectedId, setSelectedId })
       else if (view === 'materials') content = h(MaterialsPage, { snapshot, mutate, call })
       else if (view === 'tasks') content = h(TasksPage, { snapshot, mutate })
