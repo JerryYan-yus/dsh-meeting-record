@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
     const LEVEL_LABELS = { block: '必须处理', confirm: '需要确认', suggest: '建议优化' }
     const NAV = [
       ['meetings', '会议记录'],
+      ['materials', '材料'],
       ['tasks', '任务'],
       ['people', '人员'],
       ['knowledge', '知识库'],
@@ -526,7 +527,12 @@ window.__ModuleLoader__.load({
           h(Btn, { onClick: editing ? saveRecord : () => setEditing(true) }, editing ? '保存正文' : '编辑正文'),
           h(Btn, { onClick: () => saveToKnowledge('record') }, '存入知识库'),
           (meeting.sourcesCount ?? 0) > 0 ? h(Btn, { onClick: () => saveToKnowledge('reference') }, '存入检索资料') : null,
-          h(Btn, { onClick: generatePrep }, '会前材料')),
+          h(Btn, { onClick: generatePrep }, '会前材料'),
+          h(Btn, { kind: 'danger', onClick: async () => {
+            if (!window.confirm('确定删除这条会议记录？关联任务也会删除，知识库笔记保留。')) return
+            await mutate('meeting.delete', { meetingId: meeting.id })
+            onBack()
+          } }, '删除记录')),
         status !== '' ? h('div', { style: { ...ui.hint, marginBottom: 8, color: '#16794c' } }, status) : null,
         h(Card, { title: '会议记录正文', extra: editing ? null : h(RenderCheckbox, { checked: renderMarkdownEnabled, onChange: changeRecordRender }) },
           editing
@@ -606,6 +612,79 @@ window.__ModuleLoader__.load({
         h(WorkDomainCard, { snapshot }),
         h(ChatCard, { compact: false, guidance: snapshot.guidance, workDomain: snapshot.workDomain }),
         h(MeetingList, { snapshot, mutate, onOpen: setSelectedId, onCreated: setSelectedId }))
+    }
+
+    function MaterialsPage({ snapshot, mutate, call }) {
+      const materials = snapshot.materials ?? []
+      const [selected, setSelected] = useState(null)
+      const [editing, setEditing] = useState(false)
+      const [status, setStatus] = useState('')
+      const [form, setForm] = useState({ title: '', kind: '', content: '', status: 'draft' })
+      async function open(materialId) {
+        const data = await call('materials.get', { materialId, includeMarkdown: true })
+        setSelected(data)
+        setForm({ title: data.title ?? '', kind: data.kind ?? '', content: data.content ?? '', status: data.status ?? 'draft' })
+        setEditing(false)
+        setStatus('')
+      }
+      async function create() {
+        if (form.title.trim() === '' || form.content.trim() === '') return
+        const saved = await mutate('materials.save', form)
+        await open(saved.id)
+      }
+      async function save() {
+        if (selected === null) return
+        const saved = await mutate('materials.save', { ...form, id: selected.id })
+        setSelected(saved)
+        setForm({ title: saved.title, kind: saved.kind, content: saved.content, status: saved.status })
+        setEditing(false)
+        setStatus('已保存')
+      }
+      async function exportWord() {
+        if (selected === null) return
+        const result = await call('materials.export', { materialId: selected.id })
+        setStatus(`已导出：${result.path}`)
+      }
+      async function remove() {
+        if (selected === null) return
+        if (!window.confirm('确定删除这篇材料？删除后不可恢复。')) return
+        await mutate('materials.delete', { materialId: selected.id })
+        setSelected(null)
+      }
+      if (selected !== null) {
+        return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+          h('div', null, h(Btn, { kind: 'link', onClick: () => setSelected(null) }, '← 返回材料列表')),
+          h(Card, { title: selected.title, extra: editing ? h('div', null,
+            h(Btn, { kind: 'primary', onClick: save }, '保存'),
+            h(Btn, { onClick: () => { setEditing(false); setForm({ title: selected.title, kind: selected.kind, content: selected.content, status: selected.status }) } }, '取消'))
+            : h('div', { style: { display: 'flex', gap: 8 } },
+              h(Btn, { onClick: () => setEditing(true) }, '编辑'),
+              h(Btn, { onClick: exportWord }, '导出 Word'),
+              h(Btn, { kind: 'link', onClick: remove }, '删除')) },
+            h('div', { style: { ...ui.hint, marginBottom: 8 } }, `${selected.kind || '材料'} · ${selected.status === 'final' ? '已定稿' : '草稿'} · ${selected.chars ?? (form.content ?? '').length} 字`),
+            status !== '' ? h('div', { style: { ...ui.hint, marginBottom: 8, color: '#16794c' } }, status) : null,
+            editing
+              ? h('div', null,
+                h(Field, { label: '标题' }, h('input', { style: ui.input, value: form.title, onChange: event => setForm({ ...form, title: event.target.value }) })),
+                h(Field, { label: '类型' }, h('input', { style: ui.input, value: form.kind, onChange: event => setForm({ ...form, kind: event.target.value }) })),
+                h(Field, { label: '正文 Markdown' }, h('textarea', { style: { ...ui.textarea, minHeight: 420 }, value: form.content, onChange: event => setForm({ ...form, content: event.target.value }) })),
+                h(Field, { label: '状态' }, h(Select, { value: form.status, onChange: value => setForm({ ...form, status: value }), options: [{ value: 'draft', label: '草稿' }, { value: 'final', label: '定稿' }] })))
+              : h('div', { style: { maxHeight: 560, overflow: 'auto' } }, renderMarkdown(form.content))))
+      }
+      return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+        h(Card, { title: `材料库（${materials.length}）` },
+          materials.length === 0 ? h('div', { style: ui.hint }, '还没有材料。可在对话中让助手写通知、报告、总结、方案，或手动新建。') : materials.map(material => h('div', {
+            key: material.id, onClick: () => open(material.id), style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)', cursor: 'pointer' },
+          },
+            h('div', { style: { fontSize: 13, fontWeight: 600 } }, material.title),
+            h('div', { style: { ...ui.hint, marginTop: 2 } }, `${material.kind || '材料'} · ${material.status === 'final' ? '已定稿' : '草稿'} · ${material.chars ?? 0} 字 · ${String(material.updatedAt ?? '').slice(0, 10)}`)))),
+        h('details', { style: ui.card },
+          h('summary', { style: { cursor: 'pointer', fontSize: 14, fontWeight: 600 } }, '手动新建材料'),
+          h('div', { style: { marginTop: 10 } },
+            h(Field, { label: '标题' }, h('input', { style: ui.input, value: form.title, onChange: event => setForm({ ...form, title: event.target.value }) })),
+            h(Field, { label: '类型' }, h('input', { style: ui.input, placeholder: '如：通知/报告/总结/方案', value: form.kind, onChange: event => setForm({ ...form, kind: event.target.value }) })),
+            h(Field, { label: '正文 Markdown' }, h('textarea', { style: { ...ui.textarea, minHeight: 160 }, value: form.content, onChange: event => setForm({ ...form, content: event.target.value }) })),
+            h(Btn, { kind: 'primary', onClick: create }, '创建'))))
     }
 
     function TaskRow({ task, mutate }) {
@@ -1123,6 +1202,7 @@ window.__ModuleLoader__.load({
 
       let content
       if (view === 'meetings') content = h(MeetingsPage, { snapshot, mutate, call, selectedId, setSelectedId })
+      else if (view === 'materials') content = h(MaterialsPage, { snapshot, mutate, call })
       else if (view === 'tasks') content = h(TasksPage, { snapshot, mutate })
       else if (view === 'people') content = h(PeoplePage, { snapshot, mutate })
       else if (view === 'knowledge') content = h(KnowledgePage, { snapshot, mutate, call, onOpenSettings: () => setView('settings') })
@@ -1163,7 +1243,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, MaterialsPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
