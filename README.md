@@ -49,6 +49,11 @@
 - 可定期整理：自动更新知识库索引（超过 30 天或不存在时），也可手动点击“整理知识库”。
 - 生成记录或写材料时，可按需检索知识库作为参考背景，不当作会议事实。
 
+### 按需加载的技能参考
+
+- 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_skill_guide` 取用。
+- 普通会议记录不会加载这些模块，减少上下文消耗。
+
 ### 内置规范种子包
 
 - 随插件内置 8 篇通用规范：三会一课与会议类型、发展党员、支部选举、会议记录格式、公文格式、质量检查清单、组织生活会与民主评议。
@@ -206,9 +211,9 @@ git pull
 
 ## 模型工具
 
-共 19 个：
+共 22 个：
 
-`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_skill_guide`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
@@ -230,8 +235,11 @@ git pull
 │   ├── docx-export.js       # Word（OOXML）导出
 │   ├── docx-text.js         # Word 文本读取
 │   ├── template-seed.js     # 内置会议模板与专项流程
+│   ├── seed.js              # 内置规范种子包读取
+│   ├── skill-refs.js        # 按需技能参考模块读取
 │   ├── zip.js / http.js / response.js
 ├── seed/规范制度/           # 内置规范种子包
+├── skills/party-meeting-records/references/  # 按需加载的技能参考
 ├── locale/                  # 中英文面板文案
 └── skills/party-meeting-records/SKILL.md  # 对话技能
 ```
