@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-meetrecord",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "description": "机关工作助手：会议记录、会议纪要、通知、报告、总结、方案等材料生成；首次配置区分工作性质（党建/综合办公/人事/财务/项目/宣传/教学科研/基层治理等），支持 Word 导出与 Obsidian 知识库。",

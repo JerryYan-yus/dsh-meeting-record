@@ -226,7 +226,7 @@ git pull
 
 - 插件数据：`$DSH_HOME/meetrecord/app.json`（支部、人员、会议记录、草稿、设置）。
 - 技能：`$DSH_HOME/skills/party-meeting-records/SKILL.md`。
-- 知识库：默认 `~/Documents/党建会议记录知识库`，结构：
+- 知识库：党建模式默认 `~/Documents/党建会议记录知识库`；其他工作性质默认 `~/Documents/机关工作知识库`。结构：
 
   ```text
   党建会议记录知识库/

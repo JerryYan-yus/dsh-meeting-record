@@ -26,7 +26,9 @@ window.__ModuleLoader__.load({
       ['settings', '设置'],
     ]
     const KNOWLEDGE_KIND_LABELS = { branch: '支部信息', record: '会议记录', reference: '检索资料', material: '支部材料', daily: '日常工作', spec: '规范制度', index: '索引' }
-    const DEFAULT_VAULT = '~/Documents/党建会议记录知识库'
+    function defaultVaultFor(domainId) {
+      return domainId === 'party' || !domainId ? '~/Documents/党建会议记录知识库' : '~/Documents/机关工作知识库'
+    }
 
     async function apiGet() {
       const response = await fetch(`${API}/state`, { credentials: 'include' })
@@ -295,7 +297,7 @@ window.__ModuleLoader__.load({
         h(Field, { label: '补充说明（可选）' },
           h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：部门职责、人员规模、工作特点', value: notes, onChange: event => setNotes(event.target.value) })),
         h(Field, { label: 'Obsidian 知识库位置' },
-          h('input', { style: ui.input, placeholder: `默认：${DEFAULT_VAULT}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
+          h('input', { style: ui.input, placeholder: `默认：${defaultVaultFor(workDomain)}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
         h('div', { style: ui.row },
           workDomain === 'party' ? h(Field, { label: '我的角色（可不填）' }, h(Select, {
             value: profileRole, onChange: setProfileRole,
@@ -855,6 +857,7 @@ window.__ModuleLoader__.load({
           h(Btn, { kind: 'primary', onClick: onOpenSettings }, '去设置'))
       }
       const notes = (knowledge.notes ?? []).filter(item => item.kind !== 'index')
+      const kindLabels = { ...KNOWLEDGE_KIND_LABELS, branch: snapshot.workDomain?.infoLabel || '单位信息' }
       const stats = knowledge.stats ?? {}
       const total = knowledge.total ?? notes.length
       const tree = filterNoteTree(buildNoteTree(notes), filter)
@@ -867,7 +870,7 @@ window.__ModuleLoader__.load({
           h(Btn, { kind: 'link', onClick: () => repair(true), disabled: repairing }, '恢复历史数据'),
           h(Btn, { onClick: organize }, '整理知识库')) },
           h('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
-            Object.entries(KNOWLEDGE_KIND_LABELS).filter(([kind]) => kind !== 'index').map(([kind, label]) =>
+            Object.entries(kindLabels).filter(([kind]) => kind !== 'index').map(([kind, label]) =>
               h('div', { key: kind, style: { fontSize: 12, color: 'var(--dsw-alias-text-secondary, #646a73)' } }, `${label} ${stats[kind] ?? 0}`))),
           status !== '' ? h('div', { style: { ...ui.hint, marginTop: 8, color: '#16794c' } }, status) : null),
         h('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' } },
@@ -896,7 +899,7 @@ window.__ModuleLoader__.load({
               selected === null
                 ? h('div', { style: ui.hint }, '点击左侧笔记预览。')
                 : h('div', null,
-                  h('div', { style: { ...ui.hint, marginBottom: 8 } }, `${KNOWLEDGE_KIND_LABELS[selected.kind] ?? ''} · ${String(selected.date ?? '').slice(0, 10)} · ${selected.relativePath}`),
+                  h('div', { style: { ...ui.hint, marginBottom: 8 } }, `${kindLabels[selected.kind] ?? ''} · ${String(selected.date ?? '').slice(0, 10)} · ${selected.relativePath}`),
                   editing
                     ? h('textarea', { style: { ...ui.textarea, minHeight: 420 }, value: editContent, onChange: event => setEditContent(event.target.value) })
                     : h('div', { style: { maxHeight: 540, overflow: 'auto' } },
@@ -927,7 +930,7 @@ window.__ModuleLoader__.load({
       async function saveLength() { await mutate('settings.update', { recordLength }) }
       async function saveWorkDomain() { await mutate('settings.update', { workDomain }); setWorkDomainSaved('已保存'); setTimeout(() => setWorkDomainSaved(''), 3000) }
       async function saveProfile() {
-        await mutate('profile.update', { level: profileLevel, role: profileRole, purpose: profilePurpose, styleNotes })
+        await mutate('profile.update', { level: profileLevel, role: workDomain === 'party' ? profileRole : '', purpose: profilePurpose, styleNotes })
         setProfileSaved('已保存')
         setTimeout(() => setProfileSaved(''), 3000)
       }
@@ -982,9 +985,9 @@ window.__ModuleLoader__.load({
               h('span', null, h('strong', null, option.label), h('span', { style: { ...ui.hint, display: 'block' } }, option.hint))))),
           h(Btn, { kind: 'primary', onClick: saveLength }, '保存')),
         h(Card, { title: 'Obsidian 知识库' },
-          h('div', { style: { ...ui.hint, marginBottom: 8 } }, `不填则使用：${DEFAULT_VAULT}`),
+          h('div', { style: { ...ui.hint, marginBottom: 8 } }, `不填则使用：${defaultVaultFor(workDomain)}`),
           h('div', { style: { ...ui.hint, marginBottom: 8 } }, `Word 导出默认目录：知识库/${knowledgeFolder || '党建会议记录'}/Word导出`),
-          h(Field, { label: '知识库文件夹' }, h('input', { style: ui.input, placeholder: `默认：${DEFAULT_VAULT}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
+          h(Field, { label: '知识库文件夹' }, h('input', { style: ui.input, placeholder: `默认：${defaultVaultFor(workDomain)}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
           h(Field, { label: '子文件夹' }, h('input', { style: ui.input, value: knowledgeFolder, onChange: event => setKnowledgeFolder(event.target.value) })),
           h(Btn, { kind: 'primary', onClick: saveVault }, '保存'),
           h('details', { style: { marginTop: 10 } },
@@ -1013,7 +1016,7 @@ window.__ModuleLoader__.load({
               h('div', { style: ui.cardTitle }, '使用画像'),
               h('div', { style: { ...ui.hint, marginBottom: 6 } }, '用于调整指导方式；可不填。'),
               h('div', { style: ui.row },
-                h(Field, { label: '角色' }, h(Select, { value: profileRole, onChange: setProfileRole, options: [{ value: '', label: '未设置' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }] })),
+                workDomain === 'party' ? h(Field, { label: '角色' }, h(Select, { value: profileRole, onChange: setProfileRole, options: [{ value: '', label: '未设置' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }] })) : null,
                 h(Field, { label: '熟练度' }, h(Select, { value: profileLevel, onChange: setProfileLevel, options: [{ value: '', label: '未设置' }, { value: 'novice', label: '不熟' }, { value: 'regular', label: '一般' }, { value: 'expert', label: '熟练' }] })),
                 h(Field, { label: '记录用途' }, h(Select, { value: profilePurpose, onChange: setProfilePurpose, options: [{ value: '', label: '未设置' }, { value: 'handwrite', label: '手抄记录本' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }] }))),
               h(Field, { label: '写作偏好（可不填）' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：称“同志们”；少用长句；决议要写责任人', value: styleNotes, onChange: event => setStyleNotes(event.target.value) })),
@@ -1030,10 +1033,10 @@ window.__ModuleLoader__.load({
             h('div', null,
               h('div', { style: ui.cardTitle }, '数据与权限'),
               h('div', { style: ui.hint }, '数据保存在本机 $DSH_HOME/meetrecord/ 下，不上传。'),
-              h('div', { style: { ...ui.hint, marginTop: 4 } }, '本助手只能读取和写入，不能删除任何记录或文件；如需删除，请在文件系统或 Obsidian 中自行处理。')),
+              h('div', { style: { ...ui.hint, marginTop: 4 } }, '助手默认只读/写入；删除单个知识库笔记或 Word 导出文件需用户明确确认，不支持批量删除。')),
             h('div', { style: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(192,57,43,.2)' } },
               h('div', { style: { ...ui.cardTitle, color: '#c0392b' } }, '删除数据'),
-              h('div', { style: { ...ui.hint, marginBottom: 8 } }, '清空支部、人员和会议记录。不会删除 Obsidian 笔记与导入/导出文件。'),
+              h('div', { style: { ...ui.hint, marginBottom: 8 } }, '清空单位、人员和会议记录。不会删除 Obsidian 笔记与导入/导出文件。'),
               deletePhase === 'idle' ? h(Btn, { kind: 'danger', onClick: beginDelete }, '删除数据') : null,
               deletePhase === 'waiting' ? h('div', null,
                 h('div', { style: { ...ui.hint, marginBottom: 8 } }, `请等待 ${deleteSeconds} 秒后确认删除…`),
