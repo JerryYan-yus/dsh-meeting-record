@@ -21,4 +21,5 @@
 
 - 用户说“整理知识库” → `knowledge_organize(force:true)`，回“已整理：<indexPath>，共X条”；
 - 索引超过 30 天或不存在时，保存笔记会自动整理，不必反复调用。
+- 删除单个文件：先 `deletion_request` 取得 token 并向用户说明，用户明确回复“确认删除”后才 `deletion_confirm(token)`；一次一个，不能批量。
 - 用户误删/清空知识库时：优先 `knowledge_repair`（默认只补内置规范与索引，不恢复历史数据）；只有用户明确说“恢复以前的材料/记录”时，才传 `includeHistory:true`，并先确认。不要自行删除。

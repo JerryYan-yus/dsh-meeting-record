@@ -220,9 +220,9 @@ git pull
 
 ## 模型工具
 
-共 23 个：
+共 25 个：
 
-`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
@@ -256,7 +256,7 @@ git pull
 ## 说明
 
 - 当前为**单用户、本地运行**设计：数据保存在本机，不支持多用户、登录权限或云端同步。
-- 插件与助手只读取、写入本机文件；助手没有删除能力。面板中删除知识库笔记需要用户确认；清空插件数据需等待 15 秒并再次确认。
+- 插件与助手默认只读取、写入本机文件。用户明确要求删除单个文件时，助手先说明目标并询问；用户回复“确认删除”后才执行，一次只删一个，不支持批量。面板中删除知识库笔记需要确认；清空插件数据需等待 15 秒并再次确认。
 - Word 导出默认进入知识库 `Word导出/`，同名文件自动加 `-2`、`-3`。
 - Windows 长路径（超过 260 字符）、OneDrive 重定向“文档”目录、杀毒软件拦截写入等情况可能影响使用，建议把知识库放在 `Documents` 一级目录。
 
