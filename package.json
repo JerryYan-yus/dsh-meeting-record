@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-meetrecord",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "type": "module",
   "description": "党务工作助手：三会一课、支委会、党员大会、党课、组织生活会、发展党员、选举、党费材料与会议记录；兼顾机关其他工作性质，支持 Word 导出与 Obsidian 知识库。",

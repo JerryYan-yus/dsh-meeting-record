@@ -698,6 +698,37 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'primary', onClick: create }, '创建'))))
     }
 
+    function LedgerPage({ snapshot }) {
+      const meetings = snapshot.meetings ?? []
+      const years = [...new Set(meetings.map(item => String(item.meetingDate ?? '').slice(0, 4)).filter(item => /^\d{4}$/.test(item)))].sort().reverse()
+      const currentYear = years[0] ?? String(new Date().getFullYear())
+      const [year, setYear] = useState(currentYear)
+      const yearMeetings = meetings.filter(item => String(item.meetingDate ?? '').startsWith(year))
+      const types = ['支委会', '党员大会', '党小组会', '党课', '主题党日', '组织生活会']
+      const targets = { 支委会: 12, 党员大会: 4, 党小组会: 12, 党课: 4, 主题党日: 12, 组织生活会: 1 }
+      const counts = Object.fromEntries(types.map(type => [type, yearMeetings.filter(item => item.meetingType === type).length]))
+      const months = Array.from({ length: 12 }, (_, index) => {
+        const key = `${year}-${String(index + 1).padStart(2, '0')}`
+        const list = yearMeetings.filter(item => String(item.meetingDate ?? '').startsWith(key))
+        return { month: index + 1, list }
+      })
+      return h(Card, { title: '三会一课年度台账' },
+        h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
+          h('span', { style: { ...ui.hint } }, '统计年份'),
+          h(Select, { value: year, onChange: setYear, options: (years.length > 0 ? years : [currentYear]).map(item => ({ value: item, label: item + ' 年' })) })),
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
+          types.map(type => h('div', { key: type, style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } },
+            h('div', { style: { fontSize: 12, fontWeight: 600 } }, type),
+            h('div', { style: { fontSize: 18, fontWeight: 700 } }, `${counts[type]} 次`),
+            h('div', { style: { ...ui.hint, fontSize: 11 } }, `参考 ${targets[type]} 次/年`)))),
+        h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '按月分布'),
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 } },
+          months.map(month => h('div', { key: month.month, style: { padding: 6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 6, minHeight: 48 } },
+            h('div', { style: { ...ui.hint, fontSize: 11 } }, `${month.month} 月`),
+            month.list.length === 0 ? h('div', { style: { ...ui.hint, fontSize: 11 } }, '—') : month.list.map(item => h('div', { key: item.id, style: { fontSize: 11, marginTop: 2 } }, `${String(item.meetingDate ?? '').slice(8)} ${item.meetingType}`))))),
+        h('div', { style: { ...ui.hint } }, `全年共 ${yearMeetings.length} 场会议。统计来自会议记录，草稿也计入；参考频次以本单位制度为准。`))
+    }
+
     function TaskRow({ task, mutate }) {
       const [editing, setEditing] = useState(false)
       const [content, setContent] = useState(task.content ?? '')
@@ -1211,8 +1242,12 @@ window.__ModuleLoader__.load({
         return h('div', { style: { padding: 24, fontSize: 13 } }, error !== '' ? `加载失败：${error}` : '正在加载…')
       }
 
+      const navItems = (snapshot.workDomain?.id ?? 'party') === 'party'
+        ? [NAV[0], ['ledger', '党务台账'], ...NAV.slice(1)]
+        : NAV
       let content
-      if (view === 'meetings') content = h(MeetingsPage, { snapshot, mutate, call, selectedId, setSelectedId })
+      if (view === 'ledger') content = h(LedgerPage, { snapshot })
+      else if (view === 'meetings') content = h(MeetingsPage, { snapshot, mutate, call, selectedId, setSelectedId })
       else if (view === 'materials') content = h(MaterialsPage, { snapshot, mutate, call })
       else if (view === 'tasks') content = h(TasksPage, { snapshot, mutate })
       else if (view === 'people') content = h(PeoplePage, { snapshot, mutate })
@@ -1225,7 +1260,7 @@ window.__ModuleLoader__.load({
             h('div', { style: { fontSize: 18, fontWeight: 700 } }, '党务工作助手')),
           h('div', null, h(Btn, { onClick: refresh }, '刷新'), busy ? h('span', { style: ui.hint }, '处理中…') : null)),
         h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
-          NAV.map(([key, label]) => h('button', {
+          navItems.map(([key, label]) => h('button', {
             key, type: 'button', onClick: () => setView(key),
             style: { ...ui.button(view === key ? 'primary' : 'default'), marginRight: 0, borderRadius: 999, padding: '7px 20px' },
           }, label))),
@@ -1254,7 +1289,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, MaterialsPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, MaterialsPage, LedgerPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
