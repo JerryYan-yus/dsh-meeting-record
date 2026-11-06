@@ -25,7 +25,7 @@ window.__ModuleLoader__.load({
       ['knowledge', '知识库'],
       ['settings', '设置'],
     ]
-    const KNOWLEDGE_KIND_LABELS = { branch: '支部信息', record: '会议记录', reference: '检索资料', material: '支部材料', daily: '日常工作', index: '索引' }
+    const KNOWLEDGE_KIND_LABELS = { branch: '支部信息', record: '会议记录', reference: '检索资料', material: '支部材料', daily: '日常工作', spec: '规范制度', index: '索引' }
     const DEFAULT_VAULT = '~/Documents/党建会议记录知识库'
 
     async function apiGet() {
@@ -764,6 +764,7 @@ window.__ModuleLoader__.load({
       const [editing, setEditing] = useState(false)
       const [editContent, setEditContent] = useState('')
       const [status, setStatus] = useState('')
+      const [importing, setImporting] = useState(false)
       const [renderMarkdownEnabled, setRenderMarkdownEnabled] = useState(() => {
         try { return localStorage.getItem('meetrecord.kbRender') !== 'false' } catch { return true }
       })
@@ -795,6 +796,21 @@ window.__ModuleLoader__.load({
         setContent('')
         setStatus('已删除笔记')
       }
+      async function importFiles(event) {
+        const files = Array.from(event.target.files ?? [])
+        event.target.value = ''
+        if (files.length === 0) return
+        setImporting(true)
+        try {
+          const payload = []
+          for (const file of files) payload.push({ name: file.name, dataBase64: await readFileAsBase64(file) })
+          const result = await call('knowledge.import', { files: payload })
+          await mutate('state.get', {})
+          setStatus(`已导入 ${result.count} 个文件`)
+        } finally {
+          setImporting(false)
+        }
+      }
       async function organize() {
         const result = await call('knowledge.organize', { force: true })
         await mutate('state.get', {})
@@ -810,7 +826,11 @@ window.__ModuleLoader__.load({
       const total = knowledge.total ?? notes.length
       const tree = filterNoteTree(buildNoteTree(notes), filter)
       return h('div', { style: { maxWidth: 1150, display: 'flex', flexDirection: 'column', gap: 12 } },
-        h(Card, { title: `知识库（${total} 条）`, extra: h(Btn, { onClick: organize }, '整理知识库') },
+        h(Card, { title: `知识库（${total} 条）`, extra: h('div', { style: { display: 'flex', gap: 8 } },
+          h('label', { style: { ...ui.button('default'), display: 'inline-block' } },
+            importing ? '导入中…' : '导入材料',
+            h('input', { type: 'file', accept: '.md,.txt,.docx', multiple: true, onChange: importFiles, style: { display: 'none' } })),
+          h(Btn, { onClick: organize }, '整理知识库')) },
           h('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
             Object.entries(KNOWLEDGE_KIND_LABELS).filter(([kind]) => kind !== 'index').map(([kind, label]) =>
               h('div', { key: kind, style: { fontSize: 12, color: 'var(--dsw-alias-text-secondary, #646a73)' } }, `${label} ${stats[kind] ?? 0}`))),
@@ -862,12 +882,14 @@ window.__ModuleLoader__.load({
       const [profileRole, setProfileRole] = useState(snapshot.profile?.role ?? '')
       const [profilePurpose, setProfilePurpose] = useState(snapshot.profile?.purpose ?? '')
       const [profileSaved, setProfileSaved] = useState('')
+      const [styleNotes, setStyleNotes] = useState(snapshot.profile?.styleNotes ?? '')
+      const [seedStatus, setSeedStatus] = useState('')
       const [deletePhase, setDeletePhase] = useState('idle')
       const [deleteToken, setDeleteToken] = useState('')
       const [deleteSeconds, setDeleteSeconds] = useState(0)
       async function saveLength() { await mutate('settings.update', { recordLength }) }
       async function saveProfile() {
-        await mutate('profile.update', { level: profileLevel, role: profileRole, purpose: profilePurpose })
+        await mutate('profile.update', { level: profileLevel, role: profileRole, purpose: profilePurpose, styleNotes })
         setProfileSaved('已保存')
         setTimeout(() => setProfileSaved(''), 3000)
       }
@@ -934,12 +956,22 @@ window.__ModuleLoader__.load({
           h('summary', { style: { cursor: 'pointer', fontSize: 14, fontWeight: 600 } }, '高级信息'),
           h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 } },
             h('div', null,
+              h('div', { style: ui.cardTitle }, '内置规范种子包'),
+              h('div', { style: { ...ui.hint, marginBottom: 6 } }, '会议程序、发展党员、选举、记录格式、质量清单等通用规范，可写入知识库“规范制度”目录。'),
+              h(Btn, { onClick: async () => {
+                const result = await call('knowledge.seed_install', {})
+                await mutate('state.get', {})
+                setSeedStatus(`已安装 ${result.installed} 篇，跳过 ${result.skipped} 篇`)
+              } }, '安装 / 更新规范种子包'),
+              seedStatus !== '' ? h('div', { style: { ...ui.hint, marginTop: 6, color: '#16794c' } }, seedStatus) : null),
+            h('div', null,
               h('div', { style: ui.cardTitle }, '使用画像'),
               h('div', { style: { ...ui.hint, marginBottom: 6 } }, '用于调整指导方式；可不填。'),
               h('div', { style: ui.row },
                 h(Field, { label: '角色' }, h(Select, { value: profileRole, onChange: setProfileRole, options: [{ value: '', label: '未设置' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }] })),
                 h(Field, { label: '熟练度' }, h(Select, { value: profileLevel, onChange: setProfileLevel, options: [{ value: '', label: '未设置' }, { value: 'novice', label: '不熟' }, { value: 'regular', label: '一般' }, { value: 'expert', label: '熟练' }] })),
                 h(Field, { label: '记录用途' }, h(Select, { value: profilePurpose, onChange: setProfilePurpose, options: [{ value: '', label: '未设置' }, { value: 'handwrite', label: '手抄记录本' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }] }))),
+              h(Field, { label: '写作偏好（可不填）' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：称“同志们”；少用长句；决议要写责任人', value: styleNotes, onChange: event => setStyleNotes(event.target.value) })),
               h(Btn, { onClick: saveProfile }, '保存画像'),
               profileSaved !== '' ? h('span', { style: { ...ui.hint, marginLeft: 8, color: '#16794c' } }, profileSaved) : null),
             h('div', null,
