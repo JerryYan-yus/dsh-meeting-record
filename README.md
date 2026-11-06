@@ -21,6 +21,12 @@
 - 支持多轮修改、导入修订后的 Word 后以其为准更新。
 - 生成后固定确认：修改 / 输出 Word / 保存定稿 / 存入知识库。
 
+### 文件预处理
+
+- 用户只丢入政策、通知、报告、总结等文件、未提会议记录时，先识别标题/日期/文号/类型，给出摘要与建议存放位置。
+- 询问“存入知识库 / 仅本次参考 / 按它生成记录或材料”，用户确认后才保存。
+- 支持 `.docx/.txt/.md`；PDF 需先转换。
+
 ### 任务台账与会前材料
 
 - 从会议记录中提取决议/工作分工，形成任务台账；可设置责任人、完成时限，标记完成/重开。
@@ -220,9 +226,9 @@ git pull
 
 ## 模型工具
 
-共 25 个：
+共 26 个：
 
-`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_skill_guide`、`knowledge_repair`、`meeting_guide_list`、`meeting_guide_get`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
