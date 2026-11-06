@@ -249,7 +249,11 @@ window.__ModuleLoader__.load({
 
     // ------------------------------------------------------------- setup
 
-    function SetupWizard({ mutate }) {
+    function SetupWizard({ snapshot, mutate }) {
+      const fallbackDomains = [{ id: 'party', name: '党建党务', orgFieldLabel: '支部全称', orgPlaceholder: '例如：XX党支部', memberLabel: '党员', membersPlaceholder: '张三 支部书记 负责支部全面工作\n李四 组织委员 负责组织、党员发展' }]
+      const domains = snapshot?.workDomains?.length ? snapshot.workDomains : fallbackDomains
+      const [workDomain, setWorkDomain] = useState(snapshot?.settings?.workDomain || snapshot?.workDomain?.id || 'party')
+      const domain = domains.find(item => item.id === workDomain) ?? domains[0]
       const [branchName, setBranchName] = useState('')
       const [orgName, setOrgName] = useState('')
       const [notes, setNotes] = useState('')
@@ -260,16 +264,17 @@ window.__ModuleLoader__.load({
       const [profilePurpose, setProfilePurpose] = useState('')
       const [busy, setBusy] = useState(false)
       async function save() {
-        if (branchName.trim() === '' || busy) return
+        if (branchName.trim() === '' || workDomain === '' || busy) return
         setBusy(true)
         try {
           await mutate('org.setup', {
+            workDomain,
             branchName: branchName.trim(),
             orgName: orgName.trim(),
             notes: notes.trim(),
             vaultPath: vaultPath.trim(),
             members: parseMemberLines(membersText),
-            profile: { level: profileLevel, role: profileRole, purpose: profilePurpose },
+            profile: { level: profileLevel, role: workDomain === 'party' ? profileRole : '', purpose: profilePurpose },
             makeDefault: true,
           })
         } finally {
@@ -277,36 +282,41 @@ window.__ModuleLoader__.load({
         }
       }
       return h(Card, { title: '首次配置' },
-        h('div', { style: { ...ui.hint, marginBottom: 12 } }, '填写一次，长期有效。'),
-        h(Field, { label: '支部全称' },
-          h('input', { style: ui.input, placeholder: '例如：XX党支部', value: branchName, onChange: event => setBranchName(event.target.value) })),
-        h(Field, { label: '单位名称' },
-          h('input', { style: ui.input, placeholder: '例如：XX学院/单位', value: orgName, onChange: event => setOrgName(event.target.value) })),
-        h(Field, { label: '支部补充说明' },
-          h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：支部共有党员12名，设3个党小组', value: notes, onChange: event => setNotes(event.target.value) })),
+        h('div', { style: { ...ui.hint, marginBottom: 12 } }, '先选择工作性质，再填写一次，长期有效。'),
+        h(Field, { label: '您主要从事哪类工作' }, h(Select, {
+          value: workDomain, onChange: setWorkDomain,
+          options: domains.map(item => ({ value: item.id, label: item.name })),
+        })),
+        domain?.hint ? h('div', { style: { ...ui.hint, marginBottom: 8 } }, domain.hint) : null,
+        h(Field, { label: domain?.orgFieldLabel || '单位/部门全称' },
+          h('input', { style: ui.input, placeholder: domain?.orgPlaceholder || '例如：XX单位XX科室', value: branchName, onChange: event => setBranchName(event.target.value) })),
+        h(Field, { label: '单位/上级单位（可选）' },
+          h('input', { style: ui.input, placeholder: '例如：XX局、XX学院', value: orgName, onChange: event => setOrgName(event.target.value) })),
+        h(Field, { label: '补充说明（可选）' },
+          h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：部门职责、人员规模、工作特点', value: notes, onChange: event => setNotes(event.target.value) })),
         h(Field, { label: 'Obsidian 知识库位置' },
           h('input', { style: ui.input, placeholder: `默认：${DEFAULT_VAULT}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
         h('div', { style: ui.row },
-          h(Field, { label: '我的角色（可不填）' }, h(Select, {
+          workDomain === 'party' ? h(Field, { label: '我的角色（可不填）' }, h(Select, {
             value: profileRole, onChange: setProfileRole,
             options: [{ value: '', label: '不填' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }],
-          })),
+          })) : null,
           h(Field, { label: '电脑熟练度（可不填）' }, h(Select, {
             value: profileLevel, onChange: setProfileLevel,
             options: [{ value: '', label: '不填' }, { value: 'novice', label: '不熟' }, { value: 'regular', label: '一般' }, { value: 'expert', label: '熟练' }],
           })),
-          h(Field, { label: '记录用途（可不填）' }, h(Select, {
+          h(Field, { label: '用途（可不填）' }, h(Select, {
             value: profilePurpose, onChange: setProfilePurpose,
-            options: [{ value: '', label: '不填' }, { value: 'handwrite', label: '手抄记录本' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }],
+            options: [{ value: '', label: '不填' }, { value: 'handwrite', label: '手抄' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }],
           }))),
-        h(Field, { label: '人员名单' },
+        h(Field, { label: `${domain?.memberLabel || '人员'}名单` },
           h('textarea', {
             style: { ...ui.textarea, minHeight: 110 },
-            placeholder: '张三 支部书记 负责支部全面工作\n李四 组织委员 负责组织、党员发展\n王五 宣传委员 负责宣传、学习',
+            placeholder: domain?.membersPlaceholder || '张三 负责人\n李四 工作人员',
             value: membersText,
             onChange: event => setMembersText(event.target.value),
           })),
-        h(Btn, { kind: 'primary', onClick: save, disabled: busy || branchName.trim() === '' }, busy ? '保存中…' : '保存'),
+        h(Btn, { kind: 'primary', onClick: save, disabled: busy || branchName.trim() === '' || workDomain === '' }, busy ? '保存中…' : '保存'),
         h('div', { style: { ...ui.hint, marginTop: 8 } }, '保存后，在对话中说：帮我写一份会议记录。'))
     }
 
@@ -316,9 +326,10 @@ window.__ModuleLoader__.load({
       return { committee, partyMembers }
     }
 
-    function ChatCard({ compact, guidance }) {
+    function ChatCard({ compact, guidance, workDomain }) {
       const [copied, setCopied] = useState('')
-      const starter = '帮我写一份会议记录。\n会议类型：支委会\n会议日期：' + new Date().toISOString().slice(0, 10) + '\n材料如下：\n（把会议材料粘贴在这里，或写工作区里的文件路径）'
+      const meetingType = workDomain?.meetingTypes?.[0] || '会议'
+      const starter = '帮我写一份会议记录。\n会议类型：' + meetingType + '\n会议日期：' + new Date().toISOString().slice(0, 10) + '\n材料如下：\n（把会议材料粘贴在这里，或写工作区里的文件路径）'
       async function copy() {
         try {
           await navigator.clipboard.writeText(starter)
@@ -371,7 +382,8 @@ window.__ModuleLoader__.load({
     }
 
     function NewMeetingForm({ snapshot, mutate, onCreated }) {
-      const meetingTemplates = snapshot.templates.filter(template => template.kind === 'meeting')
+      const domainTemplates = snapshot.workDomain?.templates
+      const meetingTemplates = snapshot.templates.filter(template => template.kind === 'meeting' && (!Array.isArray(domainTemplates) || domainTemplates.includes(template.id) || template.builtin !== true))
       const [form, setForm] = useState({
         branchId: snapshot.settings.defaultBranchId || snapshot.branches[0]?.id || '',
         templateId: snapshot.settings.defaultTemplateId || meetingTemplates[0]?.id || '',
@@ -557,14 +569,14 @@ window.__ModuleLoader__.load({
     function MeetingsPage({ snapshot, mutate, call, selectedId, setSelectedId }) {
       const configured = snapshot.branches.length > 0 && snapshot.members.length > 0
       if (!configured) {
-        return h('div', { style: { maxWidth: 760 } }, h(SetupWizard, { mutate }))
+        return h('div', { style: { maxWidth: 760 } }, h(SetupWizard, { snapshot, mutate }))
       }
       const selected = snapshot.meetings.find(meeting => meeting.id === selectedId)
       if (selected !== undefined) {
         return h(MeetingDetail, { key: selected.id, meeting: selected, snapshot, mutate, call, onBack: () => setSelectedId('') })
       }
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
-        h(ChatCard, { compact: false, guidance: snapshot.guidance }),
+        h(ChatCard, { compact: false, guidance: snapshot.guidance, workDomain: snapshot.workDomain }),
         h(MeetingList, { snapshot, mutate, onOpen: setSelectedId, onCreated: setSelectedId }))
     }
 
@@ -644,17 +656,19 @@ window.__ModuleLoader__.load({
       async function toggleMember(member) {
         await mutate('member.update', { memberId: member.id, active: member.active === false })
       }
-      if (branches.length === 0) return h('div', { style: { maxWidth: 760 } }, h(SetupWizard, { mutate }))
+      if (branches.length === 0) return h('div', { style: { maxWidth: 760 } }, h(SetupWizard, { snapshot, mutate }))
+      const isParty = (snapshot.workDomain?.id ?? 'party') === 'party'
+      const domain = snapshot.workDomain ?? {}
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
-        branches.length > 1 ? h(Field, { label: '支部' }, h(Select, { value: branch?.id ?? '', onChange: setBranchId, options: branches.map(item => ({ value: item.id, label: item.name })) })) : null,
-        h(Card, { title: '支部信息', extra: editingBranch ? null : h('div', null,
+        branches.length > 1 ? h(Field, { label: domain.orgLabel || '部门' }, h(Select, { value: branch?.id ?? '', onChange: setBranchId, options: branches.map(item => ({ value: item.id, label: item.name })) })) : null,
+        h(Card, { title: domain.infoLabel || '支部信息', extra: editingBranch ? null : h('div', null,
           h(Btn, { onClick: () => setEditingBranch(true) }, '修改'),
           h(Btn, { onClick: async () => { const result = await mutate('branch.knowledge_save', { branchId: branch.id }); setKnowledgeStatus(result.relativePath) } }, '存入知识库')) },
           editingBranch
             ? h('div', null,
-              h(Field, { label: '支部全称' }, h('input', { style: ui.input, value: branchName, onChange: event => setBranchName(event.target.value) })),
-              h(Field, { label: '单位名称' }, h('input', { style: ui.input, value: orgName, onChange: event => setOrgName(event.target.value) })),
-              h(Field, { label: '支部补充说明' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, value: notes, onChange: event => setNotes(event.target.value) })),
+              h(Field, { label: domain.orgFieldLabel || '支部全称' }, h('input', { style: ui.input, value: branchName, onChange: event => setBranchName(event.target.value) })),
+              h(Field, { label: '单位/上级单位' }, h('input', { style: ui.input, value: orgName, onChange: event => setOrgName(event.target.value) })),
+              h(Field, { label: '补充说明' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, value: notes, onChange: event => setNotes(event.target.value) })),
               h(Btn, { kind: 'primary', onClick: saveBranch }, '保存'),
               h(Btn, { onClick: () => setEditingBranch(false) }, '取消'))
             : h('div', null,
@@ -662,19 +676,21 @@ window.__ModuleLoader__.load({
               h('div', { style: { ...ui.hint, marginTop: 4 } }, branch?.orgName || '未填写单位'),
               branch?.notes ? h('div', { style: { ...ui.hint, marginTop: 4 } }, branch.notes) : null,
               knowledgeStatus !== '' ? h('div', { style: { ...ui.hint, marginTop: 4, color: '#16794c' } }, `已存入：${knowledgeStatus}`) : null)),
-        h(Card, { title: `人员（${members.length}）` },
-          grouped.committee.length > 0 ? h('div', { style: { marginBottom: 8 } },
-            h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '支部委员'),
-            grouped.committee.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null,
-          grouped.partyMembers.length > 0 ? h('div', null,
-            h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '党员'),
-            grouped.partyMembers.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null,
+        h(Card, { title: `${domain.memberLabel || '人员'}（${members.length}）` },
+          isParty ? h('div', null,
+            grouped.committee.length > 0 ? h('div', { style: { marginBottom: 8 } },
+              h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '支部委员'),
+              grouped.committee.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null,
+            grouped.partyMembers.length > 0 ? h('div', null,
+              h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '党员'),
+              grouped.partyMembers.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null)
+            : members.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember })),
           h('details', { style: { marginTop: 10 } },
             h('summary', { style: { ...ui.hint, cursor: 'pointer' } }, '添加'),
             h('div', { style: { marginTop: 8 } },
               h(Field, { label: '姓名' }, h('input', { style: ui.input, value: name, onChange: event => setName(event.target.value) })),
-              h(Field, { label: '职务' }, h('input', { style: ui.input, placeholder: '如：支部书记', value: position, onChange: event => setPosition(event.target.value) })),
-              h(Field, { label: '补充说明' }, h('input', { style: ui.input, placeholder: '如：负责组织、党员发展', value: detail, onChange: event => setDetail(event.target.value) })),
+              h(Field, { label: '职务' }, h('input', { style: ui.input, placeholder: '如：科长/主任/工作人员', value: position, onChange: event => setPosition(event.target.value) })),
+              h(Field, { label: '补充说明' }, h('input', { style: ui.input, placeholder: '如：负责综合协调、文秘', value: detail, onChange: event => setDetail(event.target.value) })),
               h(Btn, { kind: 'primary', onClick: addMember }, '添加')))))
     }
 
@@ -890,6 +906,8 @@ window.__ModuleLoader__.load({
     }
 
     function SettingsPage({ snapshot, mutate, call }) {
+      const [workDomain, setWorkDomain] = useState(snapshot.settings.workDomain || snapshot.workDomain?.id || 'party')
+      const [workDomainSaved, setWorkDomainSaved] = useState('')
       const [recordLength, setRecordLength] = useState(snapshot.settings.recordLength ?? 'short')
       const [vaultPath, setVaultPath] = useState(snapshot.settings.vaultPath ?? '')
       const [knowledgeFolder, setKnowledgeFolder] = useState(snapshot.settings.knowledgeFolder ?? '党建会议记录')
@@ -907,6 +925,7 @@ window.__ModuleLoader__.load({
       const [deleteToken, setDeleteToken] = useState('')
       const [deleteSeconds, setDeleteSeconds] = useState(0)
       async function saveLength() { await mutate('settings.update', { recordLength }) }
+      async function saveWorkDomain() { await mutate('settings.update', { workDomain }); setWorkDomainSaved('已保存'); setTimeout(() => setWorkDomainSaved(''), 3000) }
       async function saveProfile() {
         await mutate('profile.update', { level: profileLevel, role: profileRole, purpose: profilePurpose, styleNotes })
         setProfileSaved('已保存')
@@ -948,6 +967,13 @@ window.__ModuleLoader__.load({
         { value: 'long', label: '长', hint: '约 1600–2600 字' },
       ]
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+        h(Card, { title: '工作性质', extra: workDomainSaved !== '' ? h('span', { style: ui.hint }, workDomainSaved) : null },
+          h('div', { style: { ...ui.hint, marginBottom: 8 } }, '不同工作性质的会议类型、材料类型和默认模板不同。'),
+          h(Field, { label: '主要从事' }, h(Select, {
+            value: workDomain, onChange: setWorkDomain,
+            options: (snapshot.workDomains ?? [{ id: 'party', name: '党建党务' }]).map(item => ({ value: item.id, label: item.name })),
+          })),
+          h(Btn, { kind: 'primary', onClick: saveWorkDomain }, '保存')),
         h(Card, { title: '记录长度' },
           h('div', { style: { ...ui.hint, marginBottom: 8 } }, '按手抄需要选择。'),
           h('div', { style: { display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 10 } },
@@ -1076,7 +1102,7 @@ window.__ModuleLoader__.load({
       return h('div', { style: { padding: 18, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
           h('div', null,
-            h('div', { style: { fontSize: 18, fontWeight: 700 } }, '会议记录助手')),
+            h('div', { style: { fontSize: 18, fontWeight: 700 } }, '机关工作助手')),
           h('div', null, h(Btn, { onClick: refresh }, '刷新'), busy ? h('span', { style: ui.hint }, '处理中…') : null)),
         h('div', { style: { display: 'flex', gap: 6, marginBottom: 12 } },
           NAV.map(([key, label]) => h('button', {

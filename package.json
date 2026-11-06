@@ -1,9 +1,9 @@
 {
   "name": "@local/dsh-meetrecord",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "会议记录助手：在对话里说“帮我写一份会议记录”即可生成党建会议记录；这里负责人员资料、会议模板、记录保存、Word 导出和 Obsidian 知识库。第一次使用有一分钟配置引导，不需要懂插件或技能。",
+  "description": "机关工作助手：会议记录、会议纪要、通知、报告、总结、方案等材料生成；首次配置区分工作性质（党建/综合办公/人事/财务/项目/宣传/教学科研/基层治理等），支持 Word 导出与 Obsidian 知识库。",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
