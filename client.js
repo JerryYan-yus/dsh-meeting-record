@@ -27,7 +27,7 @@ window.__ModuleLoader__.load({
     ]
     const KNOWLEDGE_KIND_LABELS = { branch: '支部信息', record: '会议记录', reference: '检索资料', material: '支部材料', daily: '日常工作', spec: '规范制度', index: '索引' }
     function defaultVaultFor(domainId) {
-      return domainId === 'party' || !domainId ? '~/Documents/党建会议记录知识库' : '~/Documents/机关工作知识库'
+      return '~/Documents/机关工作知识库'
     }
 
     async function apiGet() {
@@ -913,7 +913,7 @@ window.__ModuleLoader__.load({
       const [workDomainSaved, setWorkDomainSaved] = useState('')
       const [recordLength, setRecordLength] = useState(snapshot.settings.recordLength ?? 'short')
       const [vaultPath, setVaultPath] = useState(snapshot.settings.vaultPath ?? '')
-      const [knowledgeFolder, setKnowledgeFolder] = useState(snapshot.settings.knowledgeFolder ?? '党建会议记录')
+      const [knowledgeFolder, setKnowledgeFolder] = useState(snapshot.settings.knowledgeFolder ?? '工作资料')
       const [skillState, setSkillState] = useState(snapshot.skill)
       const [query, setQuery] = useState('')
       const [notes, setNotes] = useState(null)
@@ -986,7 +986,7 @@ window.__ModuleLoader__.load({
           h(Btn, { kind: 'primary', onClick: saveLength }, '保存')),
         h(Card, { title: 'Obsidian 知识库' },
           h('div', { style: { ...ui.hint, marginBottom: 8 } }, `不填则使用：${defaultVaultFor(workDomain)}`),
-          h('div', { style: { ...ui.hint, marginBottom: 8 } }, `Word 导出默认目录：知识库/${knowledgeFolder || '党建会议记录'}/Word导出`),
+          h('div', { style: { ...ui.hint, marginBottom: 8 } }, `Word 导出默认目录：知识库/${knowledgeFolder || '工作资料'}/Word导出`),
           h(Field, { label: '知识库文件夹' }, h('input', { style: ui.input, placeholder: `默认：${defaultVaultFor(workDomain)}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
           h(Field, { label: '子文件夹' }, h('input', { style: ui.input, value: knowledgeFolder, onChange: event => setKnowledgeFolder(event.target.value) })),
           h(Btn, { kind: 'primary', onClick: saveVault }, '保存'),
