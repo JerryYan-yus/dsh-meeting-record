@@ -96,7 +96,7 @@
 
 ### 按需加载的技能参考
 
-- 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+- 技能主文件只保留核心流程、正文结构和质量规则；首次配置、知识库、材料写作、会前材料/任务、规范种子包等细则放在参考模块中，只在对应场景通过 `meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material`、`meeting_task`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 - 普通会议记录不会加载这些模块，减少上下文消耗。
 
 ### 知识库冗余与恢复
@@ -269,9 +269,9 @@ git pull
 
 ## 模型工具
 
-共 29 个：
+共 24 个：
 
-`meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material_save`、`material_list`、`material_get`、`material_export_docx`、`meeting_tasks_save`、`meeting_tasks_list`、`meeting_task_update`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
+`meeting_reference`、`meeting_template_list`、`meeting_template_get`、`meeting_org_info`、`meeting_org_setup`、`meeting_profile_save`、`meeting_draft_save`、`meeting_record_save`、`meeting_record_get`、`meeting_export_docx`、`meeting_list`、`material`、`meeting_task`、`meeting_prep_pack`、`knowledge_repair`、`knowledge_import_files`、`file_preprocess`、`deletion_request`、`deletion_confirm`、`knowledge_save`、`knowledge_search`、`knowledge_read`、`knowledge_organize`、`docx_read`。
 
 ## 目录结构
 
@@ -304,7 +304,8 @@ git pull
 
 ## Token 优化
 
-- 技能主文件已压缩到约 12KB，文件入库、领域规则等按需加载参考模块；
+- 技能主文件压缩到约 12KB；文件入库、领域规则等按需加载；
+- 工具从 31 个合并到 24 个（参考工具、材料、任务各合并为一个 action 工具）；
 - 会议模板默认返回精简版，需要字段细节时传 `compact:false`；
 - 文件预处理只回传前 3000 字，全文由服务端批量导入；
 - 工具输出保持精简，知识检索最多 1–2 次 × 5 条，任务提醒最多 5 条；

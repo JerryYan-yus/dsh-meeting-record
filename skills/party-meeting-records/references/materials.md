@@ -8,8 +8,8 @@
 4. 起草结构：标题、背景/依据、主要情况/做法、存在问题、下一步安排；
 5. 事实只来自知识库/材料/用户确认，缺项写【待核对：…】；
 6. 用户确认后：
-   - `material_save` 存入材料库（标题、类型、正文；修改已有材料传 id）；
+   - `material(action:"save", title, kind, content)` 存入材料库（标题、类型、正文；修改已有材料传 id）；
    - 如用户同意，再 `knowledge_save kind:"material"` 存入知识库；
-   - 用户要 Word：`material_export_docx(materialId)`，默认保存到知识库 `Word导出/`；
-7. 用户说“找一下之前写的总结/修改材料” → `material_list` / `material_get`，不要凭记忆复述；
+   - 用户要 Word：`material(action:"export", materialId)`，默认保存到知识库 `Word导出/`；
+7. 用户说“找一下之前写的总结/修改材料” → `material(action:"list")` / `material(action:"get", materialId)`，不要凭记忆复述；
 8. 未指定篇幅默认中等；材料库中的材料可在面板“材料”页编辑、定稿、导出、删除。
