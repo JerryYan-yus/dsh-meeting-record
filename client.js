@@ -698,18 +698,285 @@ window.__ModuleLoader__.load({
             h(Btn, { kind: 'primary', onClick: create }, '创建'))))
     }
 
-    function LedgerPage({ snapshot, mutate }) {
-      const meetings = snapshot.meetings ?? []
+    function DocPreview({ title, content, onClose, onSave, saveLabel = '保存到材料库' }) {
+      const [status, setStatus] = useState('')
+      async function copy() {
+        try { await navigator.clipboard.writeText(content); setStatus('已复制') } catch { setStatus('复制失败') }
+      }
+      async function save() {
+        if (onSave === undefined) return
+        try {
+          await onSave(content)
+          setStatus(`已保存：${saveLabel}`)
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : String(error))
+        }
+      }
+      return h(Card, { title, extra: h('div', { style: { display: 'flex', gap: 8 } },
+        h(Btn, { onClick: copy }, '复制'),
+        onSave !== undefined ? h(Btn, { kind: 'primary', onClick: save }, saveLabel) : null,
+        h(Btn, { kind: 'link', onClick: onClose }, '关闭')) },
+        status !== '' ? h('div', { style: { ...ui.hint, marginBottom: 6, color: '#16794c' } }, status) : null,
+        h('div', { style: { maxHeight: 480, overflow: 'auto' } }, renderMarkdown(content)))
+    }
+
+    function buildDevelopmentChecklist(record) {
+      const stages = ['applicant', 'activist', 'target', 'probationary', 'full']
+      const stageIndex = Math.max(0, stages.indexOf(record.stage))
+      const dateOf = key => record[key] ? `（${record[key]}）` : '（待核对）'
+      const line = (text, key, requiredStage) => {
+        const done = record[key] !== '' && record[key] !== undefined
+        return `- [${done ? 'x' : ' '}] ${text}${dateOf(key)}${!done && stageIndex >= requiredStage ? ' **需补充**' : ''}`
+      }
+      return [
+        `# ${record.name} 发展党员材料清单`,
+        '',
+        `当前阶段：${({ applicant: '入党申请', activist: '入党积极分子', target: '发展对象', probationary: '预备党员', full: '正式党员' })[record.stage] ?? record.stage}`,
+        '',
+        '## 一、申请和培养教育',
+        line('入党申请书', 'appliedAt', 0),
+        '- [ ] 思想汇报（每季度，按实际篇数核对）',
+        line('入党积极分子推荐/推优材料', 'activistAt', 1),
+        '',
+        '## 二、发展对象阶段',
+        '- [ ] 政治审查材料（本人及主要家庭成员）',
+        '- [ ] 短期集中培训证明',
+        '- [ ] 发展对象公示材料及公示结果',
+        line('支部大会讨论接收预备党员票决材料', 'targetAt', 2),
+        '- [ ] 上级党委审批材料',
+        '',
+        '## 三、预备党员和转正',
+        line('预备党员考察表', 'probationaryAt', 3),
+        line('转正申请书及支部大会票决材料', 'fullAt', 4),
+        '- [ ] 上级党委审批转正材料',
+        '',
+        '## 四、归档提示',
+        '- 以上清单为通用参考，具体材料名称、份数和时限以上级党委及本单位制度为准。',
+        '- 日期、票数、公示期必须与原始材料核对，不能凭记忆补写。',
+        record.notes ? `- 备注：${record.notes}` : '',
+      ].filter(Boolean).join('\n')
+    }
+
+    function buildAnnualSummary(year, meetings, counts, months) {
+      const typeLabels = ['支委会', '党员大会', '党小组会', '党课', '主题党日', '组织生活会']
+      const lines = [
+        `# ${year}年三会一课年度总结`,
+        '',
+        '## 一、基本情况',
+        `${year}年共记录会议 ${meetings.length} 场。其中：` + typeLabels.map(type => `${type} ${counts[type] ?? 0} 次`).join('，') + '。',
+        '',
+        '## 二、主要做法',
+        '- 按期召开支委会、党员大会、党小组会和党课，落实“三会一课”制度；',
+        '- 围绕上级部署和支部实际开展主题党日、组织生活会和民主评议；',
+        '- 做好会议记录、签到、影像和资料归档，形成可查台账。',
+        '',
+        '## 三、存在不足',
+        '- 个别月份会议记录不够及时，资料归档需进一步规范；',
+        '- 学习内容与业务工作结合还可深化，发言质量有待提高。',
+        '',
+        '## 四、下一步',
+        '- 按年度计划落实会议频次，提前安排议题和学习材料；',
+        '- 规范记录格式，会议后及时整理、审核、归档；',
+        '- 结合党员教育管理、发展党员和支部重点工作，提高会议实效。',
+        '',
+        '## 五、月度分布',
+        ...months.map(month => `- ${month.month}月：${month.list.length} 场${month.list.length === 0 ? '（本月无记录）' : ''}`),
+        '',
+        '> 统计口径：来自本插件会议记录，草稿也计入；具体数据请与支部会议记录本核对。',
+      ]
+      return lines.join('\n')
+    }
+
+    function buildElectionPackage(form, branchName) {
+      const name = form.branchName || branchName || 'XX党支部'
+      const term = form.term || '第X届'
+      const date = form.date || '【待填写】'
+      const committeeCount = form.committeeCount || '【待填写】'
+      const secretaryCount = form.secretaryCount || '1'
+      return [
+        `# ${name}${term}换届选举材料包`,
+        '',
+        '> 本材料包为通用模板，具体程序、名额、票数、批复文号以上级党委批复和本单位制度为准。',
+        '',
+        '## 一、材料清单',
+        '- [ ] 换届选举请示及上级批复',
+        '- [ ] 候选人预备人选请示及批复',
+        '- [ ] 选举办法（草案）',
+        '- [ ] 党员大会选举主持词',
+        '- [ ] 党员大会选举结果报告',
+        '- [ ] 新一届支委会第一次会议主持词',
+        '- [ ] 选举资料归档清单',
+        '',
+        `## 二、关于召开党员大会进行换届选举的请示`,
+        `上级党委：`,
+        `我支部${term}任期届满，拟于${date}召开党员大会进行换届选举。新一届支部委员会拟设委员${committeeCount}名，其中书记${secretaryCount}名。现将有关安排请示如下：`,
+        '一、会议时间、地点；',
+        '二、会议议程；',
+        '三、委员名额和候选人条件；',
+        '四、选举办法。',
+        '妥否，请批示。',
+        `${name}`,
+        '【日期】',
+        '',
+        '## 三、候选人预备人选请示',
+        '按照差额选举要求，经党员推荐、组织考察，提出候选人预备人选【姓名、名额】。现将预备人选名单及基本情况报请审批。',
+        '',
+        '## 四、选举办法（草案）',
+        '一、根据《中国共产党章程》和有关规定制定本办法。',
+        '二、本次党员大会选举产生新一届支部委员会，委员实行差额选举，书记、副书记由新一届支委会选举产生。',
+        '三、参加选举的党员必须超过应到会有选举权党员人数的五分之四，方可进行选举。',
+        '四、候选人按姓氏笔画排列，选举采用无记名投票方式。',
+        '五、候选人获得赞成票超过实际到会有选举权人数的半数，方可当选。',
+        '六、选举设监票人【姓名】、计票人【姓名】，当场公布计票结果。',
+        '',
+        '## 五、党员大会选举主持词（简版）',
+        '同志们：现在召开党员大会，进行支部委员会换届选举。',
+        '一、清点到会人数，宣布到会情况；',
+        '二、通过选举办法；',
+        '三、通过监票人、计票人名单；',
+        '四、介绍候选人情况；',
+        '五、投票选举；',
+        '六、宣布选举结果；',
+        '七、新一届支委会召开第一次会议，选举书记、副书记。',
+        '',
+        '## 六、选举结果报告',
+        `${name}于${date}召开党员大会，应到党员【】名，实到【】名，符合规定人数。大会选举产生新一届支部委员会委员【】名，名单如下（按姓氏笔画）：【】。`,
+        '新一届支部委员会第一次会议选举书记【】名、副书记【】名。',
+        '特此报告。',
+        `${name}`,
+        '【日期】',
+        '',
+        '## 七、归档提示',
+        '- 请示、批复、选举办法、主持词、选票、计票结果、结果报告一并归档；',
+        '- 票数、姓名、日期、文号必须与原始材料核对。',
+      ].join('\n')
+    }
+
+    function DevelopmentPanel({ snapshot, mutate }) {
       const developments = snapshot.developments ?? []
-      const [tab, setTab] = useState('meetings')
-      const years = [...new Set(meetings.map(item => String(item.meetingDate ?? '').slice(0, 4)).filter(item => /^\d{4}$/.test(item)))].sort().reverse()
-      const currentYear = years[0] ?? String(new Date().getFullYear())
-      const [year, setYear] = useState(currentYear)
       const [form, setForm] = useState({ id: '', name: '', stage: 'applicant', date: '', notes: '' })
       const [editing, setEditing] = useState(false)
+      const [preview, setPreview] = useState(null)
       const stageLabels = { applicant: '入党申请', activist: '入党积极分子', target: '发展对象', probationary: '预备党员', full: '正式党员' }
       const stageOrder = ['applicant', 'activist', 'target', 'probationary', 'full']
       const stageDateKey = { applicant: 'appliedAt', activist: 'activistAt', target: 'targetAt', probationary: 'probationaryAt', full: 'fullAt' }
+      function open(record) {
+        const stage = record?.stage ?? 'applicant'
+        setForm({ id: record?.id ?? '', name: record?.name ?? '', stage, date: record?.[stageDateKey[stage]] ?? '', notes: record?.notes ?? '' })
+        setEditing(true)
+      }
+      async function save() {
+        if (form.name.trim() === '') return
+        await mutate('developments.save', { id: form.id || undefined, name: form.name.trim(), stage: form.stage, [stageDateKey[form.stage]]: form.date, notes: form.notes })
+        setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' })
+        setEditing(false)
+      }
+      async function remove(record) {
+        if (!window.confirm(`确定删除 ${record.name} 的发展党员记录？`)) return
+        await mutate('developments.delete', { developmentId: record.id })
+      }
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        preview !== null ? h(DocPreview, { title: '发展党员材料清单', content: preview, onClose: () => setPreview(null), onSave: async content => {
+          await mutate('materials.save', { title: `${preview.split('\n')[0].replace(/^#\s*/, '')}`, kind: '发展党员材料', content, status: 'draft' })
+        } }) : null,
+        h(Card, { title: `发展党员进度（${developments.length}）`, extra: h(Btn, { onClick: () => open(null) }, '新增') },
+          developments.length === 0 ? h('div', { style: ui.hint }, '还没有发展党员记录。点击“新增”登记申请人及当前阶段。') : developments.map(record => {
+            const stageIndex = Math.max(0, stageOrder.indexOf(record.stage))
+            return h('div', { key: record.id, style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                h('div', null,
+                  h('strong', { style: { fontSize: 13 } }, record.name),
+                  h('span', { style: { ...ui.hint, marginLeft: 8 } }, stageLabels[record.stage] ?? record.stage),
+                  record[stageDateKey[record.stage]] ? h('span', { style: { ...ui.hint, marginLeft: 8 } }, record[stageDateKey[record.stage]]) : null),
+                h('div', { style: { display: 'flex', gap: 8 } },
+                  h(Btn, { kind: 'link', onClick: () => setPreview(buildDevelopmentChecklist(record)) }, '材料清单'),
+                  h(Btn, { kind: 'link', onClick: () => open(record) }, '编辑'),
+                  h(Btn, { kind: 'link', onClick: () => remove(record) }, '删除'))),
+              h('div', { style: { height: 6, background: 'rgba(0,0,0,.06)', borderRadius: 3, marginTop: 6 } },
+                h('div', { style: { height: 6, width: `${((stageIndex + 1) / stageOrder.length) * 100}%`, background: '#2563eb', borderRadius: 3 } })),
+              record.notes ? h('div', { style: { ...ui.hint, marginTop: 4 } }, record.notes) : null)
+          }),
+          editing ? h('div', { style: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' } },
+            h('div', { style: ui.row },
+              h(Field, { label: '姓名' }, h('input', { style: ui.input, value: form.name, onChange: event => setForm({ ...form, name: event.target.value }) })),
+              h(Field, { label: '当前阶段' }, h(Select, { value: form.stage, onChange: value => setForm({ ...form, stage: value, date: '' }), options: stageOrder.map(stage => ({ value: stage, label: stageLabels[stage] })) })),
+              h(Field, { label: '该阶段日期' }, h('input', { type: 'date', style: ui.input, value: form.date, onChange: event => setForm({ ...form, date: event.target.value }) }))),
+            h(Field, { label: '备注' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, value: form.notes, onChange: event => setForm({ ...form, notes: event.target.value }) })),
+            h(Btn, { kind: 'primary', onClick: save }, '保存'),
+            h(Btn, { onClick: () => { setEditing(false); setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' }) } }, '取消')) : null))
+    }
+
+    function DuesPanel({ snapshot, mutate }) {
+      const defaultMonth = new Date().toLocaleDateString('sv-SE').slice(0, 7)
+      const [month, setMonth] = useState(defaultMonth)
+      const [form, setForm] = useState({ id: '', name: '', month: defaultMonth, due: '', paid: '', supplement: '', note: '' })
+      const dues = (snapshot.dues ?? []).filter(item => item.month === month)
+      const totalDue = dues.reduce((sum, item) => sum + Number(item.due ?? 0), 0)
+      const totalPaid = dues.reduce((sum, item) => sum + Number(item.paid ?? 0), 0)
+      const totalSupplement = dues.reduce((sum, item) => sum + Number(item.supplement ?? 0), 0)
+      async function save() {
+        if (form.name.trim() === '') return
+        await mutate('dues.save', { ...form, month })
+        setForm({ id: '', name: '', month, due: '', paid: '', supplement: '', note: '' })
+      }
+      async function remove(item) {
+        if (!window.confirm(`确定删除 ${item.month} ${item.name} 的党费记录？`)) return
+        await mutate('dues.delete', { duesId: item.id })
+      }
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        h(Card, { title: '党费收缴台账' },
+          h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
+            h('span', { style: ui.hint }, '月份'),
+            h('input', { type: 'month', style: { ...ui.input, maxWidth: 180 }, value: month, onChange: event => setMonth(event.target.value) })),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
+            h('div', { style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } }, h('div', { style: { ...ui.hint, fontSize: 11 } }, '应收'), h('div', { style: { fontSize: 18, fontWeight: 700 } }, `¥${totalDue.toFixed(2)}`)),
+            h('div', { style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } }, h('div', { style: { ...ui.hint, fontSize: 11 } }, '实收'), h('div', { style: { fontSize: 18, fontWeight: 700 } }, `¥${totalPaid.toFixed(2)}`)),
+            h('div', { style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } }, h('div', { style: { ...ui.hint, fontSize: 11 } }, '补缴'), h('div', { style: { fontSize: 18, fontWeight: 700 } }, `¥${totalSupplement.toFixed(2)}`))),
+          dues.length === 0 ? h('div', { style: ui.hint }, '本月还没有党费记录。') : dues.map(item => h('div', { key: item.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(0,0,0,.06)', fontSize: 13 } },
+            h('div', null, h('strong', null, item.name), h('span', { style: { ...ui.hint, marginLeft: 8 } }, `应收 ¥${Number(item.due).toFixed(2)} / 实收 ¥${Number(item.paid).toFixed(2)} / 补缴 ¥${Number(item.supplement).toFixed(2)}`), item.note ? h('span', { style: { ...ui.hint, marginLeft: 8 } }, item.note) : null),
+            h('div', null,
+              h(Btn, { kind: 'link', onClick: () => setForm({ id: item.id, name: item.name, month: item.month, due: String(item.due), paid: String(item.paid), supplement: String(item.supplement), note: item.note ?? '' }) }, '编辑'),
+              h(Btn, { kind: 'link', onClick: () => remove(item) }, '删除'))))),
+        h(Card, { title: form.id === '' ? '新增党费记录' : '编辑党费记录' },
+          h('div', { style: ui.row },
+            h(Field, { label: '姓名' }, h('input', { style: ui.input, value: form.name, onChange: event => setForm({ ...form, name: event.target.value }) })),
+            h(Field, { label: '应收' }, h('input', { type: 'number', step: '0.01', style: ui.input, value: form.due, onChange: event => setForm({ ...form, due: event.target.value }) })),
+            h(Field, { label: '实收' }, h('input', { type: 'number', step: '0.01', style: ui.input, value: form.paid, onChange: event => setForm({ ...form, paid: event.target.value }) })),
+            h(Field, { label: '补缴' }, h('input', { type: 'number', step: '0.01', style: ui.input, value: form.supplement, onChange: event => setForm({ ...form, supplement: event.target.value }) }))),
+          h(Field, { label: '备注' }, h('input', { style: ui.input, value: form.note, onChange: event => setForm({ ...form, note: event.target.value }) })),
+          h(Btn, { kind: 'primary', onClick: save }, '保存'),
+          form.id !== '' ? h(Btn, { onClick: () => setForm({ id: '', name: '', month, due: '', paid: '', supplement: '', note: '' }) }, '取消') : null))
+    }
+
+    function ElectionPanel({ snapshot, mutate }) {
+      const branch = snapshot.branches?.find(item => item.id === snapshot.settings?.defaultBranchId) ?? snapshot.branches?.[0]
+      const [form, setForm] = useState({ branchName: branch?.name ?? '', term: '第X届', date: '', committeeCount: '', secretaryCount: '1' })
+      const [preview, setPreview] = useState(null)
+      async function generate() {
+        setPreview(buildElectionPackage(form, branch?.name ?? ''))
+      }
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        preview !== null ? h(DocPreview, { title: '换届选举材料包', content: preview, onClose: () => setPreview(null), onSave: async content => {
+          await mutate('materials.save', { title: `${form.branchName || branch?.name || '党支部'}${form.term}换届选举材料包`, kind: '换届选举材料包', content, status: 'draft' })
+        } }) : null,
+        h(Card, { title: '支部换届/选举材料包' },
+          h('div', { style: { ...ui.hint, marginBottom: 8 } }, '填写基本信息，生成请示、选举办法、主持词、结果报告等通用模板；具体程序以上级党委批复为准。'),
+          h('div', { style: ui.row },
+            h(Field, { label: '支部名称' }, h('input', { style: ui.input, value: form.branchName, onChange: event => setForm({ ...form, branchName: event.target.value }) })),
+            h(Field, { label: '届次' }, h('input', { style: ui.input, placeholder: '第X届', value: form.term, onChange: event => setForm({ ...form, term: event.target.value }) })),
+            h(Field, { label: '党员大会日期' }, h('input', { type: 'date', style: ui.input, value: form.date, onChange: event => setForm({ ...form, date: event.target.value }) }))),
+          h('div', { style: ui.row },
+            h(Field, { label: '委员名额' }, h('input', { type: 'number', style: ui.input, value: form.committeeCount, onChange: event => setForm({ ...form, committeeCount: event.target.value }) })),
+            h(Field, { label: '书记名额' }, h('input', { type: 'number', style: ui.input, value: form.secretaryCount, onChange: event => setForm({ ...form, secretaryCount: event.target.value }) }))),
+          h(Btn, { kind: 'primary', onClick: generate }, '生成材料包')))
+    }
+
+    function MeetingsLedger({ meetings }) {
+      const years = [...new Set(meetings.map(item => String(item.meetingDate ?? '').slice(0, 4)).filter(item => /^\\d{4}$/.test(item)))].sort().reverse()
+      const currentYear = years[0] ?? String(new Date().getFullYear())
+      const [year, setYear] = useState(currentYear)
+      const [preview, setPreview] = useState(null)
+      const [saved, setSaved] = useState('')
       const yearMeetings = meetings.filter(item => String(item.meetingDate ?? '').startsWith(year))
       const types = ['支委会', '党员大会', '党小组会', '党课', '主题党日', '组织生活会']
       const targets = { 支委会: 12, 党员大会: 4, 党小组会: 12, 党课: 4, 主题党日: 12, 组织生活会: 1 }
@@ -718,66 +985,42 @@ window.__ModuleLoader__.load({
         const key = `${year}-${String(index + 1).padStart(2, '0')}`
         return { month: index + 1, list: yearMeetings.filter(item => String(item.meetingDate ?? '').startsWith(key)) }
       })
-      function openDevelopment(record) {
-        const stage = record?.stage ?? 'applicant'
-        setForm({ id: record?.id ?? '', name: record?.name ?? '', stage, date: record?.[stageDateKey[stage]] ?? '', notes: record?.notes ?? '' })
-        setEditing(true)
+      async function saveSummary(content) {
+        const result = await mutate('knowledge.save', { kind: 'material', title: `${year}年三会一课年度总结`, content, tags: ['三会一课', '年度总结'] })
+        setSaved(result.relativePath ?? '')
       }
-      async function saveDevelopment() {
-        if (form.name.trim() === '') return
-        await mutate('developments.save', { id: form.id || undefined, name: form.name.trim(), stage: form.stage, [stageDateKey[form.stage]]: form.date, notes: form.notes })
-        setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' })
-        setEditing(false)
-      }
-      async function removeDevelopment(record) {
-        if (!window.confirm(`确定删除 ${record.name} 的发展党员记录？`)) return
-        await mutate('developments.delete', { developmentId: record.id })
-      }
-      const tabs = [['meetings', '三会一课'], ['development', '发展党员']]
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-        h('div', { style: { display: 'flex', gap: 6 } },
+        preview !== null ? h(DocPreview, { title: `${year}年三会一课年度总结`, content: preview, onClose: () => setPreview(null), onSave: saveSummary, saveLabel: '存入知识库' }) : null,
+        h(Card, { title: '三会一课年度台账' },
+          h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
+            h('span', { style: { ...ui.hint } }, '统计年份'),
+            h(Select, { value: year, onChange: setYear, options: (years.length > 0 ? years : [currentYear]).map(item => ({ value: item, label: item + ' 年' })) }),
+            h(Btn, { kind: 'primary', onClick: () => setPreview(buildAnnualSummary(year, yearMeetings, counts, months)) }, '生成年度总结')),
+          saved !== '' ? h('div', { style: { ...ui.hint, marginBottom: 8, color: '#16794c' } }, `已存入知识库：${saved}`) : null,
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
+            types.map(type => h('div', { key: type, style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } },
+              h('div', { style: { fontSize: 12, fontWeight: 600 } }, type),
+              h('div', { style: { fontSize: 18, fontWeight: 700 } }, `${counts[type]} 次`),
+              h('div', { style: { ...ui.hint, fontSize: 11 } }, `参考 ${targets[type]} 次/年`)))),
+          h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '按月分布'),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 } },
+            months.map(month => h('div', { key: month.month, style: { padding: 6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 6, minHeight: 48 } },
+              h('div', { style: { ...ui.hint, fontSize: 11 } }, `${month.month} 月`),
+              month.list.length === 0 ? h('div', { style: { ...ui.hint, fontSize: 11 } }, '—') : month.list.map(item => h('div', { key: item.id, style: { fontSize: 11, marginTop: 2 } }, `${String(item.meetingDate ?? '').slice(8)} ${item.meetingType}`))))),
+          h('div', { style: { ...ui.hint } }, `全年共 ${yearMeetings.length} 场会议。统计来自会议记录，草稿也计入；参考频次以本单位制度为准。`)))
+    }
+
+    function LedgerPage({ snapshot, mutate }) {
+      const [tab, setTab] = useState('meetings')
+      const tabs = [['meetings', '三会一课'], ['development', '发展党员'], ['dues', '党费'], ['election', '换届选举']]
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
           tabs.map(([key, label]) => h('button', { key, type: 'button', onClick: () => setTab(key),
             style: { ...ui.button(tab === key ? 'primary' : 'default'), borderRadius: 999, padding: '7px 18px' } }, label))),
-        tab === 'development'
-          ? h(Card, { title: `发展党员进度（${developments.length}）`, extra: h(Btn, { onClick: () => openDevelopment(null) }, '新增') },
-            developments.length === 0 ? h('div', { style: ui.hint }, '还没有发展党员记录。点击“新增”登记申请人及当前阶段。') : developments.map(record => {
-              const stageIndex = Math.max(0, stageOrder.indexOf(record.stage))
-              return h('div', { key: record.id, style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                  h('div', null,
-                    h('strong', { style: { fontSize: 13 } }, record.name),
-                    h('span', { style: { ...ui.hint, marginLeft: 8 } }, stageLabels[record.stage] ?? record.stage),
-                    record[stageDateKey[record.stage]] ? h('span', { style: { ...ui.hint, marginLeft: 8 } }, record[stageDateKey[record.stage]]) : null),
-                  h('div', { style: { display: 'flex', gap: 8 } },
-                    h(Btn, { kind: 'link', onClick: () => openDevelopment(record) }, '编辑'),
-                    h(Btn, { kind: 'link', onClick: () => removeDevelopment(record) }, '删除'))),
-                h('div', { style: { height: 6, background: 'rgba(0,0,0,.06)', borderRadius: 3, marginTop: 6 } },
-                  h('div', { style: { height: 6, width: `${((stageIndex + 1) / stageOrder.length) * 100}%`, background: '#2563eb', borderRadius: 3 } })),
-                record.notes ? h('div', { style: { ...ui.hint, marginTop: 4 } }, record.notes) : null)
-            }),
-            editing ? h('div', { style: { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.08)' } },
-              h('div', { style: ui.row },
-                h(Field, { label: '姓名' }, h('input', { style: ui.input, value: form.name, onChange: event => setForm({ ...form, name: event.target.value }) })),
-                h(Field, { label: '当前阶段' }, h(Select, { value: form.stage, onChange: value => setForm({ ...form, stage: value, date: '' }), options: stageOrder.map(stage => ({ value: stage, label: stageLabels[stage] })) })),
-                h(Field, { label: '该阶段日期' }, h('input', { type: 'date', style: ui.input, value: form.date, onChange: event => setForm({ ...form, date: event.target.value }) }))),
-              h(Field, { label: '备注' }, h('textarea', { style: { ...ui.textarea, minHeight: 60 }, value: form.notes, onChange: event => setForm({ ...form, notes: event.target.value }) })),
-              h(Btn, { kind: 'primary', onClick: saveDevelopment }, '保存'),
-              h(Btn, { onClick: () => { setEditing(false); setForm({ id: '', name: '', stage: 'applicant', date: '', notes: '' }) } }, '取消')) : null)
-          : h(Card, { title: '三会一课年度台账' },
-            h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
-              h('span', { style: { ...ui.hint } }, '统计年份'),
-              h(Select, { value: year, onChange: setYear, options: (years.length > 0 ? years : [currentYear]).map(item => ({ value: item, label: item + ' 年' })) })),
-            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
-              types.map(type => h('div', { key: type, style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } },
-                h('div', { style: { fontSize: 12, fontWeight: 600 } }, type),
-                h('div', { style: { fontSize: 18, fontWeight: 700 } }, `${counts[type]} 次`),
-                h('div', { style: { ...ui.hint, fontSize: 11 } }, `参考 ${targets[type]} 次/年`)))),
-            h('div', { style: { fontSize: 12, fontWeight: 600, marginBottom: 4 } }, '按月分布'),
-            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 } },
-              months.map(month => h('div', { key: month.month, style: { padding: 6, border: '1px solid rgba(0,0,0,.08)', borderRadius: 6, minHeight: 48 } },
-                h('div', { style: { ...ui.hint, fontSize: 11 } }, `${month.month} 月`),
-                month.list.length === 0 ? h('div', { style: { ...ui.hint, fontSize: 11 } }, '—') : month.list.map(item => h('div', { key: item.id, style: { fontSize: 11, marginTop: 2 } }, `${String(item.meetingDate ?? '').slice(8)} ${item.meetingType}`))))),
-            h('div', { style: { ...ui.hint } }, `全年共 ${yearMeetings.length} 场会议。统计来自会议记录，草稿也计入；参考频次以本单位制度为准。`)))
+        tab === 'development' ? h(DevelopmentPanel, { snapshot, mutate })
+          : tab === 'dues' ? h(DuesPanel, { snapshot, mutate })
+            : tab === 'election' ? h(ElectionPanel, { snapshot, mutate })
+              : h(MeetingsLedger, { meetings: snapshot.meetings ?? [] }))
     }
 
     function TaskRow({ task, mutate }) {
@@ -1340,7 +1583,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, MaterialsPage, LedgerPage, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, MaterialsPage, LedgerPage, DevelopmentPanel, DuesPanel, ElectionPanel, MeetingsLedger, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
