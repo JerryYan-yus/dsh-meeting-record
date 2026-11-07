@@ -1,5 +1,5 @@
 /**
- * Client half of the 会议记录助手 bundle (simplified, novice-friendly UI).
+ * Client half of the 党务工作助手 bundle (novice-friendly UI).
  *
  * Three top-level pages only: 会议记录 / 人员 / 设置. The panel is intentionally
  * minimal: the primary workflow is "copy one sentence into a conversation";
@@ -19,7 +19,7 @@ window.__ModuleLoader__.load({
     const STATUS_LABELS = { draft: '草稿', generated: '已生成', finalized: '已定稿', archived: '已归档' }
     const LEVEL_LABELS = { block: '必须处理', confirm: '需要确认', suggest: '建议优化' }
     const NAV = [
-      ['meetings', '会议记录'],
+      ['meetings', '工作台'],
       ['materials', '材料'],
       ['tasks', '任务'],
       ['people', '人员'],
@@ -285,8 +285,15 @@ window.__ModuleLoader__.load({
       const [profileRole, setProfileRole] = useState('')
       const [profilePurpose, setProfilePurpose] = useState('')
       const [busy, setBusy] = useState(false)
+      const [error, setError] = useState('')
       async function save() {
+        const members = parseMemberLines(membersText)
         if (branchName.trim() === '' || workDomain === '' || busy) return
+        if (members.length === 0) {
+          setError('请至少填写一位党员姓名，一人一行。')
+          return
+        }
+        setError('')
         setBusy(true)
         try {
           await mutate('org.setup', {
@@ -295,7 +302,7 @@ window.__ModuleLoader__.load({
             orgName: orgName.trim(),
             notes: notes.trim(),
             vaultPath: vaultPath.trim(),
-            members: parseMemberLines(membersText),
+            members,
             profile: { level: profileLevel, role: workDomain === 'party' ? profileRole : '', purpose: profilePurpose },
             makeDefault: true,
           })
@@ -303,44 +310,65 @@ window.__ModuleLoader__.load({
           setBusy(false)
         }
       }
-      return h(Card, { title: '首次配置' },
-        h('div', { style: { ...ui.hint, marginBottom: 12 } }, '默认党建党务；填写一次，长期有效。非党建工作者可在“工作性质”中切换。'),
-        h(Field, { label: '工作性质（默认党建党务）' }, h(Select, {
-          value: workDomain, onChange: setWorkDomain,
-          options: domains.map(item => ({ value: item.id, label: item.name })),
-        })),
-        domain?.hint ? h('div', { style: { ...ui.hint, marginBottom: 8 } }, domain.hint) : null,
+      return h(Card, { title: '第一次使用（约 1 分钟）' },
+        h('div', { style: { ...ui.hint, marginBottom: 10, lineHeight: 1.8 } },
+          '只需两步：① 填支部名称；② 粘贴党员名单。其他都可以以后再补。'),
         h(Field, { label: domain?.orgFieldLabel || '单位/部门全称' },
           h('input', { style: ui.input, placeholder: domain?.orgPlaceholder || '例如：XX单位XX科室', value: branchName, onChange: event => setBranchName(event.target.value) })),
-        h(Field, { label: '单位/上级单位（可选）' },
-          h('input', { style: ui.input, placeholder: '例如：XX局、XX学院', value: orgName, onChange: event => setOrgName(event.target.value) })),
-        h(Field, { label: '补充说明（可选）' },
-          h('textarea', { style: { ...ui.textarea, minHeight: 60 }, placeholder: '例如：部门职责、人员规模、工作特点', value: notes, onChange: event => setNotes(event.target.value) })),
-        h(Field, { label: 'Obsidian 知识库位置' },
-          h('input', { style: ui.input, placeholder: `默认：${defaultVaultFor(workDomain)}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
-        h('div', { style: ui.row },
-          workDomain === 'party' ? h(Field, { label: '我的角色（可不填）' }, h(Select, {
-            value: profileRole, onChange: setProfileRole,
-            options: [{ value: '', label: '不填' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }],
-          })) : null,
-          h(Field, { label: '电脑熟练度（可不填）' }, h(Select, {
-            value: profileLevel, onChange: setProfileLevel,
-            options: [{ value: '', label: '不填' }, { value: 'novice', label: '不熟' }, { value: 'regular', label: '一般' }, { value: 'expert', label: '熟练' }],
-          })),
-          h(Field, { label: '用途（可不填）' }, h(Select, {
-            value: profilePurpose, onChange: setProfilePurpose,
-            options: [{ value: '', label: '不填' }, { value: 'handwrite', label: '手抄' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }],
-          }))),
-        h(Field, { label: workDomain === 'party' ? '党员名单（姓名 职务 党员类别 入党时间 月党费 备注）' : `${domain?.memberLabel || '人员'}名单` },
+        h(Field, { label: workDomain === 'party' ? '党员名单（一人一行，只写姓名也可以）' : `${domain?.memberLabel || '人员'}名单（一人一行）` },
           h('textarea', {
-            style: { ...ui.textarea, minHeight: 110 },
-            placeholder: workDomain === 'party' ? '张三 支部书记 正式党员 2019-07-01 30 负责全面工作\n李四 组织委员 正式党员 2020-03-01 25 负责组织、党员发展' : (domain?.membersPlaceholder || '张三 负责人\n李四 工作人员'),
+            style: { ...ui.textarea, minHeight: 120 },
+            placeholder: workDomain === 'party' ? '张三 支部书记 正式党员 2019-07-01 30\n李四 组织委员 正式党员 2020-03-01 25\n王五 普通党员' : (domain?.membersPlaceholder || '张三 负责人\n李四 工作人员'),
             value: membersText,
             onChange: event => setMembersText(event.target.value),
           })),
-        workDomain === 'party' ? h('div', { style: { ...ui.hint, marginTop: 4 } }, '填写“月党费”后，会按标准自动生成本月党费台账；没有的信息可先留空，之后再补。') : null,
-        h(Btn, { kind: 'primary', onClick: save, disabled: busy || branchName.trim() === '' || workDomain === '' }, busy ? '保存中…' : '保存'),
-        h('div', { style: { ...ui.hint, marginTop: 8 } }, '保存后，在对话中说：帮我写一份会议记录。'))
+        h('div', { style: { ...ui.hint, marginTop: 4 } }, workDomain === 'party'
+          ? '格式：姓名 职务 党员类别 入党时间 月党费。不知道的直接写姓名，之后在“人员”里补；填了月党费会自动生成本月党费台账。'
+          : '不知道职务、备注的可以先只写姓名。'),
+        error !== '' ? h('div', { style: { marginTop: 6, color: '#c0392b', fontSize: 12 } }, error) : null,
+        h(Btn, { kind: 'primary', onClick: save, disabled: busy || branchName.trim() === '' || workDomain === '' }, busy ? '保存中…' : '保存并开始使用'),
+        h('details', { style: { ...ui.card, marginTop: 12, marginBottom: 0 } },
+          h('summary', { style: { cursor: 'pointer', fontSize: 13, fontWeight: 600 } }, '高级设置（可不填）'),
+          h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 } },
+            h('div', { style: ui.row },
+              h(Field, { label: '工作性质' }, h(Select, {
+                value: workDomain, onChange: setWorkDomain,
+                options: domains.map(item => ({ value: item.id, label: item.name })),
+              })),
+              h(Field, { label: '单位/上级单位' }, h('input', { style: ui.input, placeholder: '例如：XX局、XX学院', value: orgName, onChange: event => setOrgName(event.target.value) }))),
+            domain?.hint ? h('div', { style: ui.hint }, domain.hint) : null,
+            h(Field, { label: '补充说明' }, h('textarea', { style: { ...ui.textarea, minHeight: 50 }, placeholder: '例如：党员人数、党小组设置', value: notes, onChange: event => setNotes(event.target.value) })),
+            h(Field, { label: '知识库位置（可不填）' }, h('input', { style: ui.input, placeholder: `默认：${defaultVaultFor(workDomain)}`, value: vaultPath, onChange: event => setVaultPath(event.target.value) })),
+            h('div', { style: ui.row },
+              workDomain === 'party' ? h(Field, { label: '我的角色' }, h(Select, {
+                value: profileRole, onChange: setProfileRole,
+                options: [{ value: '', label: '不填' }, { value: 'secretary', label: '支部书记' }, { value: 'organizer', label: '组织委员' }, { value: 'committee', label: '其他支委' }, { value: 'member', label: '普通党员' }, { value: 'other', label: '其他' }],
+              })) : null,
+              h(Field, { label: '电脑熟练度' }, h(Select, {
+                value: profileLevel, onChange: setProfileLevel,
+                options: [{ value: '', label: '不填' }, { value: 'novice', label: '不熟' }, { value: 'regular', label: '一般' }, { value: 'expert', label: '熟练' }],
+              })),
+              h(Field, { label: '用途' }, h(Select, {
+                value: profilePurpose, onChange: setProfilePurpose,
+                options: [{ value: '', label: '不填' }, { value: 'handwrite', label: '手抄' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }],
+              }))))),
+        h('div', { style: { ...ui.hint, marginTop: 8 } }, '保存后，直接到左侧对话里说：帮我写一份会议记录。'))
+    }
+
+    function QuickStartCard({ workDomain }) {
+      const [copied, setCopied] = useState(false)
+      const meetingType = workDomain?.meetingTypes?.[0] || '会议'
+      async function copyStarter() {
+        const text = `帮我写一份${meetingType}会议记录。\n会议日期：${new Date().toISOString().slice(0, 10)}\n会议材料/要点：\n`
+        try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 3000) } catch { setCopied(false) }
+      }
+      return h(Card, { title: '第一次使用：三步开始' },
+        h('div', { style: { fontSize: 13, lineHeight: 2 } },
+          h('div', null, '① 点下面按钮复制一句话'),
+          h('div', null, '② 粘贴到左侧对话，附上会议材料'),
+          h('div', null, '③ 生成后回面板保存、导出或存入知识库')),
+        h(Btn, { kind: 'primary', onClick: copyStarter }, copied ? '已复制' : '复制开始提示语'),
+        h('div', { style: { ...ui.hint, marginTop: 6 } }, '不用懂模板、插件或格式；照着提示发一句话即可。'))
     }
 
     function memberSummary(members) {
@@ -640,6 +668,7 @@ window.__ModuleLoader__.load({
         return h(MeetingDetail, { key: selected.id, meeting: selected, snapshot, mutate, call, onBack: () => setSelectedId('') })
       }
       return h('div', { style: { maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 12 } },
+        snapshot.meetings.length === 0 ? h(QuickStartCard, { workDomain: snapshot.workDomain }) : null,
         h(WorkDomainCard, { snapshot }),
         h(ChatCard, { compact: false, guidance: snapshot.guidance, workDomain: snapshot.workDomain }),
         h(MeetingList, { snapshot, mutate, onOpen: setSelectedId, onCreated: setSelectedId }))
@@ -1627,7 +1656,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, MaterialsPage, LedgerPage, DevelopmentPanel, DuesPanel, ElectionPanel, MeetingsLedger, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, parseMemberLines, renderMarkdown,
+        PeoplePage, TasksPage, MaterialsPage, LedgerPage, DevelopmentPanel, DuesPanel, ElectionPanel, MeetingsLedger, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, QuickStartCard, SetupWizard, MemberRow, Card, Field, Btn, Select, parseMemberLines, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
