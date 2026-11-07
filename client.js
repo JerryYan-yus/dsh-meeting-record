@@ -89,14 +89,33 @@ window.__ModuleLoader__.load({
     }
 
     function parseMemberLines(text) {
+      const statusPattern = /^(正式党员|预备党员|入党积极分子|积极分子|发展对象|群众)$/
+      const datePattern = /^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})日?$/
+      const duesPattern = /^\d+(?:\.\d+)?元?$/
       return String(text ?? '')
         .split(/\n|；|;/)
         .map(line => line.trim())
         .filter(Boolean)
         .map(line => {
           const parts = line.split(/\s+/).filter(Boolean)
-          if (parts.length <= 1) return { name: parts[0] ?? '', position: '', detail: '' }
-          return { name: parts[0], position: parts[1], detail: parts.slice(2).join(' ') }
+          if (parts.length <= 1) return { name: parts[0] ?? '', position: '', partyStatus: '', joinDate: '', duesMonthly: 0, detail: '' }
+          const item = { name: parts[0], position: '', partyStatus: '', joinDate: '', duesMonthly: 0, detail: '' }
+          let index = 1
+          if (parts[index] !== undefined && !statusPattern.test(parts[index]) && !datePattern.test(parts[index]) && !duesPattern.test(parts[index])) {
+            item.position = parts[index]
+            index += 1
+          }
+          const rest = []
+          for (; index < parts.length; index += 1) {
+            const part = parts[index]
+            const date = part.match(datePattern)
+            if (item.partyStatus === '' && statusPattern.test(part)) item.partyStatus = part
+            else if (item.joinDate === '' && date !== null) item.joinDate = `${date[1]}-${String(date[2]).padStart(2, '0')}-${String(date[3]).padStart(2, '0')}`
+            else if (item.duesMonthly === 0 && duesPattern.test(part)) item.duesMonthly = Number(part.replace('元', '')) || 0
+            else rest.push(part)
+          }
+          item.detail = rest.join(' ')
+          return item
         })
         .filter(item => item.name !== '')
     }
@@ -312,13 +331,14 @@ window.__ModuleLoader__.load({
             value: profilePurpose, onChange: setProfilePurpose,
             options: [{ value: '', label: '不填' }, { value: 'handwrite', label: '手抄' }, { value: 'archive', label: '电子归档' }, { value: 'report', label: '上报材料' }],
           }))),
-        h(Field, { label: `${domain?.memberLabel || '人员'}名单` },
+        h(Field, { label: workDomain === 'party' ? '党员名单（姓名 职务 党员类别 入党时间 月党费 备注）' : `${domain?.memberLabel || '人员'}名单` },
           h('textarea', {
             style: { ...ui.textarea, minHeight: 110 },
-            placeholder: domain?.membersPlaceholder || '张三 负责人\n李四 工作人员',
+            placeholder: workDomain === 'party' ? '张三 支部书记 正式党员 2019-07-01 30 负责全面工作\n李四 组织委员 正式党员 2020-03-01 25 负责组织、党员发展' : (domain?.membersPlaceholder || '张三 负责人\n李四 工作人员'),
             value: membersText,
             onChange: event => setMembersText(event.target.value),
           })),
+        workDomain === 'party' ? h('div', { style: { ...ui.hint, marginTop: 4 } }, '填写“月党费”后，会按标准自动生成本月党费台账；没有的信息可先留空，之后再补。') : null,
         h(Btn, { kind: 'primary', onClick: save, disabled: busy || branchName.trim() === '' || workDomain === '' }, busy ? '保存中…' : '保存'),
         h('div', { style: { ...ui.hint, marginTop: 8 } }, '保存后，在对话中说：帮我写一份会议记录。'))
     }
@@ -928,6 +948,7 @@ window.__ModuleLoader__.load({
           h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 } },
             h('span', { style: ui.hint }, '月份'),
             h('input', { type: 'month', style: { ...ui.input, maxWidth: 180 }, value: month, onChange: event => setMonth(event.target.value) })),
+          h(Btn, { onClick: async () => { const result = await mutate('dues.generate', { month }); setForm({ ...form, note: '' }); window.alert(`已生成 ${result.created} 条，共 ${result.total} 名有党费标准的党员`); } }, '按党员标准生成本月台账'),
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 } },
             h('div', { style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } }, h('div', { style: { ...ui.hint, fontSize: 11 } }, '应收'), h('div', { style: { fontSize: 18, fontWeight: 700 } }, `¥${totalDue.toFixed(2)}`)),
             h('div', { style: { padding: 8, borderRadius: 6, background: 'rgba(0,0,0,.03)' } }, h('div', { style: { ...ui.hint, fontSize: 11 } }, '实收'), h('div', { style: { fontSize: 18, fontWeight: 700 } }, `¥${totalPaid.toFixed(2)}`)),
@@ -1078,6 +1099,9 @@ window.__ModuleLoader__.load({
       const [notes, setNotes] = useState(branch?.notes ?? '')
       const [name, setName] = useState('')
       const [position, setPosition] = useState('')
+      const [partyStatus, setPartyStatus] = useState('')
+      const [joinDate, setJoinDate] = useState('')
+      const [duesMonthly, setDuesMonthly] = useState('')
       const [detail, setDetail] = useState('')
       const [knowledgeStatus, setKnowledgeStatus] = useState('')
       useEffect(() => {
@@ -1091,9 +1115,12 @@ window.__ModuleLoader__.load({
       }
       async function addMember() {
         if (name.trim() === '' || branch === undefined) return
-        await mutate('member.create', { branchId: branch.id, name: name.trim(), position: position.trim(), detail: detail.trim() })
+        await mutate('member.create', { branchId: branch.id, name: name.trim(), position: position.trim(), partyStatus, joinDate, duesMonthly: Number(duesMonthly) || 0, detail: detail.trim() })
         setName('')
         setPosition('')
+        setPartyStatus('')
+        setJoinDate('')
+        setDuesMonthly('')
         setDetail('')
       }
       async function toggleMember(member) {
@@ -1123,41 +1150,58 @@ window.__ModuleLoader__.load({
           isParty ? h('div', null,
             grouped.committee.length > 0 ? h('div', { style: { marginBottom: 8 } },
               h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '支部委员'),
-              grouped.committee.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null,
+              grouped.committee.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember, isParty }))) : null,
             grouped.partyMembers.length > 0 ? h('div', null,
               h('div', { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, '党员'),
-              grouped.partyMembers.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember }))) : null)
-            : members.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember })),
+              grouped.partyMembers.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember, isParty }))) : null)
+            : members.map(member => h(MemberRow, { key: member.id, member, mutate, onToggle: toggleMember, isParty })),
           h('details', { style: { marginTop: 10 } },
             h('summary', { style: { ...ui.hint, cursor: 'pointer' } }, '添加'),
             h('div', { style: { marginTop: 8 } },
               h(Field, { label: '姓名' }, h('input', { style: ui.input, value: name, onChange: event => setName(event.target.value) })),
-              h(Field, { label: '职务' }, h('input', { style: ui.input, placeholder: '如：科长/主任/工作人员', value: position, onChange: event => setPosition(event.target.value) })),
+              h(Field, { label: '职务' }, h('input', { style: ui.input, placeholder: '如：支部书记/组织委员/普通党员', value: position, onChange: event => setPosition(event.target.value) })),
+              isParty ? h('div', { style: ui.row },
+                h(Field, { label: '党员类别' }, h('input', { style: ui.input, placeholder: '正式党员/预备党员/入党积极分子', value: partyStatus, onChange: event => setPartyStatus(event.target.value) })),
+                h(Field, { label: '入党时间' }, h('input', { type: 'date', style: ui.input, value: joinDate, onChange: event => setJoinDate(event.target.value) })),
+                h(Field, { label: '月党费（元）' }, h('input', { type: 'number', step: '0.01', style: ui.input, value: duesMonthly, onChange: event => setDuesMonthly(event.target.value) }))) : null,
               h(Field, { label: '补充说明' }, h('input', { style: ui.input, placeholder: '如：负责综合协调、文秘', value: detail, onChange: event => setDetail(event.target.value) })),
               h(Btn, { kind: 'primary', onClick: addMember }, '添加')))))
     }
 
-    function MemberRow({ member, mutate, onToggle }) {
+    function MemberRow({ member, mutate, onToggle, isParty }) {
       const [editing, setEditing] = useState(false)
       const [name, setName] = useState(member.name ?? '')
       const [position, setPosition] = useState(member.position ?? '')
+      const [partyStatus, setPartyStatus] = useState(member.partyStatus ?? '')
+      const [joinDate, setJoinDate] = useState(member.joinDate ?? '')
+      const [duesMonthly, setDuesMonthly] = useState(String(member.duesMonthly ?? ''))
       const [detail, setDetail] = useState(member.detail ?? '')
       async function save() {
         if (name.trim() === '') return
-        await mutate('member.update', { memberId: member.id, name: name.trim(), position: position.trim(), detail: detail.trim() })
+        await mutate('member.update', { memberId: member.id, name: name.trim(), position: position.trim(), partyStatus, joinDate, duesMonthly: Number(duesMonthly) || 0, detail: detail.trim() })
         setEditing(false)
       }
       if (editing) {
         return h('div', { style: { padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,.06)' } },
           h('div', { style: ui.row },
             h(Field, { label: '姓名' }, h('input', { style: ui.input, value: name, onChange: event => setName(event.target.value) })),
-            h(Field, { label: '职务' }, h('input', { style: ui.input, value: position, onChange: event => setPosition(event.target.value) })),
-            h(Field, { label: '补充说明' }, h('input', { style: ui.input, value: detail, onChange: event => setDetail(event.target.value) }))),
+            h(Field, { label: '职务' }, h('input', { style: ui.input, value: position, onChange: event => setPosition(event.target.value) }))),
+          isParty ? h('div', { style: ui.row },
+            h(Field, { label: '党员类别' }, h('input', { style: ui.input, placeholder: '正式党员/预备党员/入党积极分子', value: partyStatus, onChange: event => setPartyStatus(event.target.value) })),
+            h(Field, { label: '入党时间' }, h('input', { type: 'date', style: ui.input, value: joinDate, onChange: event => setJoinDate(event.target.value) })),
+            h(Field, { label: '月党费（元）' }, h('input', { type: 'number', step: '0.01', style: ui.input, value: duesMonthly, onChange: event => setDuesMonthly(event.target.value) }))) : null,
+          h(Field, { label: '补充说明' }, h('input', { style: ui.input, value: detail, onChange: event => setDetail(event.target.value) })),
           h(Btn, { kind: 'primary', onClick: save }, '保存'),
           h(Btn, { onClick: () => setEditing(false) }, '取消'))
       }
       return h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 13 } },
-        h('span', null, member.name, member.position ? `（${member.position}）` : '', member.detail ? `　${member.detail}` : ''),
+        h('span', null,
+          member.name,
+          member.position ? `（${member.position}）` : '',
+          member.partyStatus ? `　${member.partyStatus}` : '',
+          member.joinDate ? `　入党 ${member.joinDate}` : '',
+          member.duesMonthly > 0 ? `　月党费 ¥${Number(member.duesMonthly).toFixed(2)}` : '',
+          member.detail ? `　${member.detail}` : ''),
         h('div', null,
           h(Btn, { kind: 'link', onClick: () => setEditing(true) }, '编辑'),
           h(Btn, { kind: 'link', onClick: () => onToggle(member) }, member.active === false ? '恢复' : '停用')))
@@ -1583,7 +1627,7 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       __test: {
         App, MeetingsPage, MeetingDetail, MeetingList, NewMeetingForm, SetupWizard,
-        PeoplePage, TasksPage, MaterialsPage, LedgerPage, DevelopmentPanel, DuesPanel, ElectionPanel, MeetingsLedger, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, renderMarkdown,
+        PeoplePage, TasksPage, MaterialsPage, LedgerPage, DevelopmentPanel, DuesPanel, ElectionPanel, MeetingsLedger, KnowledgePage, SettingsPage, ChatCard, WorkDomainCard, MemberRow, Card, Field, Btn, Select, parseMemberLines, renderMarkdown,
       },
       apply(ctx) {
         const register = () => {
